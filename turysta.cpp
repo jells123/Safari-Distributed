@@ -10,6 +10,8 @@
 
 using namespace std;
 
+enum Role { O, T };
+
 typedef struct info {
   int type;
   int value;
@@ -42,6 +44,9 @@ int main(int argc,char **argv)
 
 		//MPI_Send( &res, 1, MPI_INT, ROOT, MSG_TAG, MPI_COMM_WORLD );
 
+    //while(true) {
+
+    //}
 
     MPI_Finalize();
 }
