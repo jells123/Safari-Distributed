@@ -11,8 +11,13 @@ enum MsgType {
     INVITE,
     ACCEPT,
     REJECT_HASGROUP,
-    REJECT_ORG,
-    // ...?
+    REJECT_ISORG,
+    NOT_ORG,         // nie jestem organizatorem
+    BEATED,
+    CHANGE_GROUP,
+    GUIDE_REQ,
+    GUIDE_RESP,      // zgoda na przydzielenie przewodnika
+    TRIP_END
 };
 
 typedef struct {
