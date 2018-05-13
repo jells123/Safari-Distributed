@@ -47,6 +47,7 @@ int main(int argc,char **argv)
     //while(true) {
 
     //}
+    //komentarz
 
     MPI_Finalize();
 }
