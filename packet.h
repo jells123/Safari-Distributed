@@ -22,6 +22,8 @@ enum MsgType {
 
 typedef struct {
     int timestamp;
-    MsgType type;
+    int type;
     int info_val;
 } packet;
+
+#endif
