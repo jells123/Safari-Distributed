@@ -1,7 +1,5 @@
 #include "inits.h"
 
-int lastHandler;
-messageHandler handlers[100];
 pthread_t sender_th, receiver_th;
 int size, tid, timestamp;
 
@@ -52,14 +50,4 @@ void init(int *argc, char ***argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &tid);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     srand(tid);
-
-    //pthread_create( &sender_th, NULL, startFunc, 0);
-    //pthread_create( &receiver_th, NULL, comDelayFunc, 0);
-}
-
-void addMessageHandler(MsgType type, void (*handler)(packet*)) {
-    handlers[lastHandler].msgType = type;
-    handlers[lastHandler].handler = handler;
-    lastHandler++;
-    return;
 }
