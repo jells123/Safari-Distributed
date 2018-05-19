@@ -75,9 +75,8 @@ vector<int> invitations;
 void *orgThreadFunction(void *ptr) {
 
     packet pkt;
-    //while ( true ) {
+    tab[tid].role = ORG;
 
-        //if (currentRole == ORG) {
             invitations.clear();
 
             //pthread_mutex_lock(&myGroup_mtx);
@@ -87,10 +86,10 @@ void *orgThreadFunction(void *ptr) {
 
                 if (invitations.size() == T-1) {
 
-                    for (int i = 0; i < tab.size(); i++) {
+                    for (int i = 0; i < T; i++) {
                         if (tab[i].role == ORG) {
                             int participants = 0;
-                            for (int j = 0; j < tab.size(); j++) {
+                            for (int j = 0; j < T; j++) {
                                 if (tab[j].role == TUR && tab[j].value == i)
                                     participants++;
                             }
@@ -98,41 +97,36 @@ void *orgThreadFunction(void *ptr) {
                         }
                     }
 
-                    vector<int> procSortedIndexes;
-                    vector<processInfo> sortingHelper;
-
-                    procSortedIndexes.push_back(0);
-                    sortingHelper.push_back(tab[0]);
-
+                    vector<int> indexes; vector<processInfo> procSorted;
+                    indexes.push_back(0); procSorted.push_back(tab[0]);
                     vector<int>::iterator intIt;
-                    vector<processInfo>::iterator procInfoIt;
+                    vector<processInfo>::iterator procIt;
 
-                    for (int i = 1; i < tab.size(); i++) {
+                    size_t j;
+                    for (int i = 1; i < T; i++) {
                         processInfo current = tab[i];
 
-                        for (int j = 0; j < sortingHelper.size(); j++) {
-                            if ( (current.role == ORG && sortingHelper[j].role == TUR) 
-                                || (current.role == ORG && sortingHelper[j].role == ORG && current.value < sortingHelper[j].value) 
-                                || (current.role == ORG && sortingHelper[j].role == ORG && current.value == sortingHelper[j].value && i < procSortedIndexes[j])) {
+                        for (j = 0; j < procSorted.size(); j++) {
 
-                                intIt = procSortedIndexes.begin();
-                                procInfoIt = sortingHelper.begin();
+                            if ( (current.role == ORG && procSorted[j].role != ORG) 
+                                || (current.role == ORG && procSorted[j].role == ORG && current.value < procSorted[j].value) 
+                                || (current.role == ORG && procSorted[j].role == ORG && current.value == procSorted[j].value && i < indexes[j])) {
 
-                                procSortedIndexes.insert(intIt + j, i);
-                                sortingHelper.insert(procInfoIt + j, current);
+                                intIt = indexes.begin(); procIt = procSorted.begin();
+                                indexes.insert(intIt + j, i); procSorted.insert(procIt + j, current);
 
                                 continue;
                             }
-                            else if (j == sortingHelper.size()) {
-                                procSortedIndexes.push_back(i);
-                                sortingHelper.push_back(current);
-                            }
+                        }
+                        if (j == procSorted.size()) {
+                                indexes.push_back(i);
+                                procSorted.push_back(current);
                         }
 
                     }
                     println("Nailed it!\n");
-                    for (int i = 0; i < sortingHelper.size(); i++) {
-                        printf("[tid %d, role %s, val %d] ", procSortedIndexes[i], rolesNames[sortingHelper[i].role], sortingHelper[i].value);
+                    for (int i = 0; i < procSorted.size(); i++) {
+                        println("[tid %d, role %s, val %d] ", indexes[i], rolesNames[procSorted[i].role], procSorted[i].value);
                     }
 
                 }
@@ -199,6 +193,8 @@ void randomRole() {
 
     if (currentRole == ORG)
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
+
+    tab[tid].role = currentRole;
 
 }
 
