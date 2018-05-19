@@ -41,7 +41,6 @@ pthread_mutex_t inviteResponses_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t myGroup_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 vector<processInfo> tab; // T == size??
-vector<int> permissions, queue;
 
 int inviteResponses;
 void *receiveMessages(void *ptr) {
@@ -68,6 +67,63 @@ void *receiveMessages(void *ptr) {
 
     return (void *)0;
 }
+
+
+typedef struct orgInfo {
+    int timestamp;
+    int tid;
+} orgInfo;
+
+int permissions;
+int sentPer;
+vector<orgInfo> queue;
+pthread_mutex_t permission_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+void deleteFromQueue(int tid) {
+    for(int i = 0; i < queue.size(); i++) {
+        if(queue[i].tid == tid) {
+            queue.erase(queue.begin() + i);
+            return;
+        }
+    }
+}
+
+void reserveGuide() {
+    timestamp++;
+    
+    packet msg = { timestamp, GUIDE_REQ, 0 };
+    orgInfo myInfo = { timestamp, tid };
+    queue.push_back(myInfo);
+
+    permissions = 0;
+    sentPer = 0;
+
+    for (int i = 0; i < size; i++) {
+        if (tab[i].role != TUR && i != tid) {
+            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+            println("Sending req to [%d]", i);
+            sentPer++;
+        }
+    }
+
+    int i = 0;
+    while(sentPer < MAX_ORGS - 1) {
+        if (i != tid) {
+            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+            println("Sending req to [%d]", i);
+            sentPer++;
+        }
+        i++;
+        if(permissions >= (MAX_ORGS - P))
+            break;
+    }
+
+    while(permissions < (MAX_ORGS - P));
+
+    deleteFromQueue(tid);
+    println("Got a Guide!\n");
+}
+
 
 
 vector<int> myGroup;
@@ -112,7 +168,7 @@ void *orgThreadFunction(void *ptr) { // NOPE, MYLĄCA NAZWA FUKNCJI ;)
             }
             println("I've got a group!\n");
             //while (true) ;
-            
+            reserveGuide();
         //}
 
     //}
@@ -163,6 +219,8 @@ void inviteHandler(packet *pkt, int src) {
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD); 
     }
 
+    tab[src].role = ORG;
+
     pthread_mutex_unlock(&myGroup_mtx);
 }
 
@@ -203,6 +261,7 @@ void reject_hasgroupHandler(packet *pkt, int src) {
 
     tab[src].role = TUR;
     tab[src].value = pkt->info_val;
+    tab[pkt->info_val].role = ORG;
 
     println("%d already has group :/\n", src);
 
@@ -219,15 +278,42 @@ void reject_isorgHandler(packet *pkt, int src) {
     println("%d is org too. \n", src);
 }
 
+void response_guideReqHandler(packet *pkt, int src) {                   // osobny watek do odpowiadania na req o przewodnika?
+    if(currentRole == ORG) {
+        orgInfo hisInfo = { pkt->timestamp, src };
+        queue.push_back(hisInfo);
+
+        if(queue.size() <= P && (myGroup.size() != G-1 || src < tid)){                        // narazie bez timestampa
+            packet msg = { timestamp, GUIDE_RESP, 0 };
+            MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+            println("Ok, I let you [%d] reserve a guide\n", src);
+
+        } else {
+            println("I won't let you [%d] reserve a guide! For now..\n", src);
+        }
+
+
+    } else {
+        println("I'm not an ogr, sth went wrong...\n");
+    }
+}
+
+void got_guideRespHandler(packet *pkt, int src) {
+    pthread_mutex_lock(&permission_mtx);
+    permissions++;
+    pthread_mutex_unlock(&permission_mtx);
+    println("Got permission from [%d]\n", src);
+}
 
 void prepare() {
 
     tab.reserve(T);
-    permissions.reserve(G);
+    //permissions.reserve(G);
     queue.reserve((int) T/G);
     timestamp = 0;
 
     currentRole = UNKNOWN;
+
     randomRole();
 
     for (int i = 0; i < T; i++) {
@@ -240,6 +326,8 @@ void prepare() {
     addMessageHandler(REJECT_HASGROUP, reject_hasgroupHandler);
     addMessageHandler(REJECT_ISORG, reject_isorgHandler);
     addMessageHandler(INVITE, inviteHandler);
+    addMessageHandler(GUIDE_REQ, response_guideReqHandler);
+    addMessageHandler(GUIDE_RESP, got_guideRespHandler);
 
 }
 
