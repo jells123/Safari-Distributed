@@ -33,7 +33,7 @@ void init(int *argc, char ***argv)
 {
     int provided;
     MPI_Init_thread(argc, argv, MPI_THREAD_MULTIPLE, &provided);
-    check_thread_support(provided);
+    //check_thread_support(provided);
 
     const int nitems=3;
     int blocklengths[3] = {1,1,1};

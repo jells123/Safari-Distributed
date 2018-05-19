@@ -6,6 +6,8 @@
 #include <iostream> 
 #include <cstdlib> 
 #include <vector>
+#include <set>
+#include <algorithm>
 
 #include "packet.h"
 #include "inits.h"
@@ -33,11 +35,14 @@ int G = 2; // rozmiar grupy
 int P = 3; // liczba przewodnikow
 
 int MAX_ORGS;
-pthread_mutex_t tab_mtx;
+
+pthread_mutex_t tab_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t inviteResponses_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 vector<processInfo> tab; // T == size??
 vector<int> permissions, queue;
 
+int inviteResponses;
 void *receiveMessages(void *ptr) {
 
     packet pkt;
@@ -46,7 +51,8 @@ void *receiveMessages(void *ptr) {
         //println("czekam na wiadomości...\n");
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-        //println("wiadomość: %s od %d\n", msgTypes[pkt.type], status.MPI_SOURCE);
+        if (pkt.type != NOT_ORG)
+            println("wiadomość: %s od %d\n", msgTypes[pkt.type], status.MPI_SOURCE);
         for (int i = 0; i < handlers.size(); i++) {
             if (handlers[i].msgType == pkt.type)
                 handlers[i].handler( &pkt, status.MPI_SOURCE ); 
@@ -73,7 +79,7 @@ void randomRole() {
         currentRole = TUR;
 
     if (prevRole != currentRole) {
-        println("nowa rola: %s\n", rolesNames[currentRole]);
+        println("new role: %s\n", rolesNames[currentRole]);
 
         if (currentRole == TUR) {
             packet msg = { timestamp, NOT_ORG, 0 };
@@ -84,20 +90,66 @@ void randomRole() {
     }
 }
 
+vector<int> myGroup;
+vector<int> invitations;
 void *sendMessages(void *ptr) { // NOPE, MYLĄCA NAZWA FUKNCJI ;)
 
     packet pkt;
     while ( true ) {
-        
+
         if (currentRole == ORG) {
-            int invited = 0;
+
+            while (myGroup.size() != G) {
+
+                pthread_mutex_lock(&inviteResponses_mtx);
+                inviteResponses = 0;
+                invitations.clear();
+                pthread_mutex_unlock(&inviteResponses_mtx);
+
+                vector<int>::iterator it;
+                int choice, missing = G - myGroup.size();
+
+                for ( int i = 0; i < G; ++i ) {
+                //while (invitations.size() != G) {
+                    do {
+                        choice = rand()%T;
+                        it=find(invitations.begin(), invitations.end(), choice);
+                    } while (choice == tid || it != invitations.end());
+                    invitations.push_back(choice);
+                }
+                //}
+
+                //for (auto i : invitations) {
+                for (int i = 0; i < G; ++i) {
+                    int idx = invitations.size() - 1 - i;
+                    packet msg = { timestamp, INVITE, missing };
+                    MPI_Send( &msg, 1, MPI_PAKIET_T, idx, MSG_TAG, MPI_COMM_WORLD);
+                }
+
+                while (inviteResponses != invitations.size()) ;
+
+            }
+
+            println("I've got a group!\n");
             
         }
-
 
     }
 
     return (void *)0;
+
+}
+
+   // ACCEPT, // przyjęcie zaproszenia 
+   //  REJECT_HASGROUP, // odmowa - mam już grupę
+   //  REJECT_ISORG, // odmowa - jestem organizatorem
+
+void inviteHandler(packet *pkt, int src) {
+    if (currentRole == TUR && myGroup.empty()) {
+        myGroup.push_back(src);
+        packet msg = { timestamp, ACCEPT, 0 };
+        MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);   
+    }
 }
 
 void not_orgHandler(packet *pkt, int src) {
@@ -111,11 +163,40 @@ void not_orgHandler(packet *pkt, int src) {
         && T - touristsCount < MAX_ORGS 
         && MAX_ORGS - (T - touristsCount) > tid ) { // o jeden za mało?
         currentRole = ORG;
-        println("I became ORG!\n");
+        println("I became ORG! Because I could.\n");
     }
-
-    
 }
+
+void acceptHandler(packet *pkt, int src) {
+    pthread_mutex_lock(&inviteResponses_mtx);
+    inviteResponses++;
+    pthread_mutex_unlock(&inviteResponses_mtx);
+
+    myGroup.push_back(src);
+    tab[src].role = TUR;
+    tab[src].value = tid;
+}
+
+void reject_hasgroupHandler(packet *pkt, int src) {
+    pthread_mutex_lock(&inviteResponses_mtx);
+    inviteResponses++;
+    pthread_mutex_unlock(&inviteResponses_mtx);
+
+    tab[src].role = TUR;
+    tab[src].value = pkt->info_val;
+
+}
+
+void reject_isorgHandler(packet *pkt, int src) {
+    pthread_mutex_lock(&inviteResponses_mtx);
+    inviteResponses++;
+    pthread_mutex_unlock(&inviteResponses_mtx);
+
+    tab[src].role = ORG;
+    tab[src].value = pkt->info_val;
+
+}
+
 
 void prepare() {
 
@@ -129,10 +210,14 @@ void prepare() {
 
     for (int i = 0; i < T; i++) {
         tab[i].role = UNKNOWN;
-        tab[i].value = 0;
+        tab[i].value = -1;
     }
 
     addMessageHandler(NOT_ORG, not_orgHandler);
+    addMessageHandler(ACCEPT, acceptHandler);
+    addMessageHandler(REJECT_HASGROUP, reject_hasgroupHandler);
+    addMessageHandler(REJECT_ISORG, reject_isorgHandler);
+    addMessageHandler(INVITE, inviteHandler);
 
 }
 
@@ -156,15 +241,6 @@ int main(int argc, char * * argv) {
     packet msg;
 
     while (true) {
-
-        // timestamp++;
-        // msg.timestamp = timestamp;
-
-        // for (int i = 0; i < size; i++) {
-        //     if (i != tid)
-        //         MPI_Recv( & msg, 1, MPI_PAKIET_T, i, MPI_ANY_TAG, MPI_COMM_WORLD, & status);
-        //     cout << msg.timestamp << " " << msg.type << " " << msg.info_val << endl;
-        // }
     }
 
     MPI_Finalize();
