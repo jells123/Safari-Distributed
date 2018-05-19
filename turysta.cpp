@@ -51,6 +51,7 @@ void *receiveMessages(void *ptr) {
 
         //println("czekam na wiadomości...\n");
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        timestamp = max(timestamp, pkt.timestamp);
 
         //if (pkt.type != NOT_ORG)
         //    println("wiadomość: %s od %d\n", msgTypes[pkt.type], status.MPI_SOURCE);
@@ -69,10 +70,9 @@ void *receiveMessages(void *ptr) {
     return (void *)0;
 }
 
-
 vector<int> myGroup;
 vector<int> invitations;
-void *orgThreadFunction(void *ptr) { // NOPE, MYLĄCA NAZWA FUKNCJI ;)
+void *orgThreadFunction(void *ptr) {
 
     packet pkt;
     //while ( true ) {
@@ -85,12 +85,68 @@ void *orgThreadFunction(void *ptr) { // NOPE, MYLĄCA NAZWA FUKNCJI ;)
 
             while (myGroup.size() != G-1) {
 
-                pthread_mutex_lock(&inviteResponses_mtx);
-                inviteResponses = 0;
-                pthread_mutex_unlock(&inviteResponses_mtx);
+                if (invitations.size() == T-1) {
+
+                    for (int i = 0; i < tab.size(); i++) {
+                        if (tab[i].role == ORG) {
+                            int participants = 0;
+                            for (int j = 0; j < tab.size(); j++) {
+                                if (tab[j].role == TUR && tab[j].value == i)
+                                    participants++;
+                            }
+                            tab[i].value = G - participants - 1;
+                        }
+                    }
+
+                    vector<int> procSortedIndexes;
+                    vector<processInfo> sortingHelper;
+
+                    procSortedIndexes.push_back(0);
+                    sortingHelper.push_back(tab[0]);
+
+                    vector<int>::iterator intIt;
+                    vector<processInfo>::iterator procInfoIt;
+
+                    for (int i = 1; i < tab.size(); i++) {
+                        processInfo current = tab[i];
+
+                        for (int j = 0; j < sortingHelper.size(); j++) {
+                            if ( (current.role == ORG && sortingHelper[j].role == TUR) 
+                                || (current.role == ORG && sortingHelper[j].role == ORG && current.value < sortingHelper[j].value) 
+                                || (current.role == ORG && sortingHelper[j].role == ORG && current.value == sortingHelper[j].value && i < procSortedIndexes[j])) {
+
+                                intIt = procSortedIndexes.begin();
+                                procInfoIt = sortingHelper.begin();
+
+                                procSortedIndexes.insert(intIt + j, i);
+                                sortingHelper.insert(procInfoIt + j, current);
+
+                                continue;
+                            }
+                            else if (j == sortingHelper.size()) {
+                                procSortedIndexes.push_back(i);
+                                sortingHelper.push_back(current);
+                            }
+                        }
+
+                    }
+                    println("Nailed it!\n");
+                    for (int i = 0; i < sortingHelper.size(); i++) {
+                        printf("[tid %d, role %s, val %d] ", procSortedIndexes[i], rolesNames[sortingHelper[i].role], sortingHelper[i].value);
+                    }
+
+                }
 
                 vector<int>::iterator it;
                 int choice, missing = G-1 - myGroup.size();
+
+                if (invitations.size() + missing > T-1) {
+                    missing = T - invitations.size();
+                }
+
+                pthread_mutex_lock(&inviteResponses_mtx);
+                inviteResponses = 0;
+                pthread_mutex_unlock(&inviteResponses_mtx);
 
                 for ( int i = 0; i < missing; ++i ) {
                     do {
@@ -159,7 +215,7 @@ void inviteHandler(packet *pkt, int src) {
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);   
     }
     else if (currentRole == ORG) {
-        packet msg = { timestamp, REJECT_ISORG, G - myGroup.size() };
+        packet msg = { timestamp, REJECT_ISORG, G - myGroup.size() - 1 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD); 
     }
 
@@ -253,6 +309,8 @@ int main(int argc, char * * argv) {
     MAX_ORGS = T / G;
 
     init(&argc, &argv);
+    srand(time(NULL) + tid);
+
     //cout << "Liczba turystow: " << T << " Wielkosc grupy: " << G << " Liczba przewodnikow: " << P << endl;
 
     prepare();
