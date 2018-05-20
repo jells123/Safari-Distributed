@@ -37,6 +37,8 @@
 extern pthread_t sender_th, receiver_th;
 extern int size, tid, timestamp;
 
+// extern char** rolesNames, msgTypes;
+
 void check_thread_support(int provided);
 void init(int *argc, char ***argv);
 

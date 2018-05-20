@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "packet.h"
+#include "turysta.h"
 
 struct messageHandler {
     MsgType msgType;
@@ -17,5 +18,15 @@ struct messageHandler {
 extern std::vector<messageHandler> handlers;
 
 void addMessageHandler(MsgType msgType, void (*handler)(packet*, int));
+
+void inviteHandler(packet *pkt, int src);
+void change_groupHandler(packet *pkt, int src);
+void not_orgHandler(packet *pkt, int src);
+void acceptHandler(packet *pkt, int src);
+void reject_isorgHandler(packet *pkt, int src);
+void reject_hasgroupHandler(packet *pkt, int src);
+void response_guideReqHandler(packet *pkt, int src);
+void got_guideRespHandler(packet *pkt, int src);
+void ended_tripHandler(packet *pkt, int src);
 
 #endif
