@@ -34,12 +34,15 @@ int T = 10; // liczba turystow
 int G = 2; // rozmiar grupy
 int P = 3; // liczba przewodnikow
 
+//int givenResp = 0;
+
 int MAX_ORGS;
 
 pthread_mutex_t tab_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t inviteResponses_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t myGroup_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t timestamp_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t queue_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 vector<processInfo> tab; // T == size??
 
@@ -99,7 +102,9 @@ void reserveGuide() {
     orgInfo myInfo = { timestamp, tid };
     pthread_mutex_unlock(&timestamp_mtx);
 
+    pthread_mutex_lock(&queue_mtx);
     queue.push_back(myInfo);
+    pthread_mutex_unlock(&queue_mtx);
 
     permissions = 0;
 
@@ -129,8 +134,73 @@ void reserveGuide() {
         while(permissions < (MAX_ORGS - P));
     }
 
+    pthread_mutex_lock(&queue_mtx);
     deleteFromQueue(tid);
+    pthread_mutex_unlock(&queue_mtx);
+
     println("Got a Guide!\n");
+}
+
+
+void comeBack() {
+
+    println("Ended trip\n");
+
+    packet msg = { timestamp, TRIP_END, 0 };
+
+    for (int i = 0; i < size; i++)
+        if (i != tid)
+            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+
+    pthread_mutex_lock(&queue_mtx);
+
+    vector<orgInfo> orgSorted;
+    orgSorted.push_back(queue[0]);
+    vector<orgInfo>::iterator procIt;
+
+    size_t j;
+    for (int i = 1; i < queue.size(); i++) {
+        orgInfo current = queue[i];
+
+        for (j = 0; j < orgSorted.size(); j++) {
+
+            if ( (current.timestamp < orgSorted[j].timestamp) 
+                || (current.timestamp == orgSorted[j].timestamp && current.tid < orgSorted[j].tid)) {
+
+                procIt = orgSorted.begin();
+                orgSorted.insert(procIt + j, current);
+
+                continue;
+            }
+        }
+        if (j == orgSorted.size()) {
+            orgSorted.push_back(current);
+        }
+
+    }
+
+    queue.clear();
+
+    pthread_mutex_unlock(&queue_mtx);
+    println("Nailed it!\n");
+
+    for (int i = 0; i < orgSorted.size(); i++) {
+
+        pthread_mutex_lock(&timestamp_mtx);
+        timestamp++;
+        pthread_mutex_unlock(&timestamp_mtx);
+
+        packet msg = { timestamp, GUIDE_RESP, 0 };
+        
+        if(orgSorted[i].tid != tid) {
+            MPI_Send( &msg, 1, MPI_PAKIET_T, orgSorted[i].tid, MSG_TAG, MPI_COMM_WORLD);
+            println("Ok, I let you [%d] reserve a guide\n", orgSorted[i].tid);
+        } else {
+            println("Why am I still in the queue?\n");
+        }
+        //println("[timestamp: %d, tid: %d]\n", orgSorted[i].timestamp, orgSorted[i].tid);
+    }
+
 }
 
 
@@ -231,6 +301,8 @@ void *orgThreadFunction(void *ptr) {
             println("I've got a group!\n");
             //while (true) ;
             reserveGuide();
+            comeBack();
+            while(true);
         //}
 
     //}
@@ -350,13 +422,11 @@ void reject_isorgHandler(packet *pkt, int src) {
 
 void response_guideReqHandler(packet *pkt, int src) {                   // osobny watek do odpowiadania na req o przewodnika?
     if(currentRole == ORG) {
-        orgInfo hisInfo = { pkt->timestamp, src };
-        queue.push_back(hisInfo);
 
-        if(queue.size() <= P &&
-            (myGroup.size() != G-1 || (myGroup.size() == G-1 
-                && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp 
-                    && src < tid))))){
+        //if(givenResp < P &&
+        if(myGroup.size() != G-1 || (myGroup.size() == G-1 
+            && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp 
+                && src < tid)))){
                 
             pthread_mutex_lock(&timestamp_mtx);
             timestamp++;
@@ -365,9 +435,20 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
             packet msg = { timestamp, GUIDE_RESP, 0 };
             MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
             println("Ok, I let you [%d] reserve a guide\n", src);
+
+            //givenResp++;
             
         } else {
-            println("I won't let you [%d] reserve a guide! For now.. My timestamp: %d, his: %d\n", src, timestamp, pkt->timestamp);
+            orgInfo hisInfo = { pkt->timestamp, src };
+            
+            pthread_mutex_lock(&queue_mtx);    
+            queue.push_back(hisInfo);
+            pthread_mutex_unlock(&queue_mtx);
+
+
+            //println("I won't let you [%d] reserve a guide! For now.. My timestamp: %d, his: %d\n", src, timestamp, pkt->timestamp);
+            println("I won't let you [%d] reserve a guide! For now..\n", src);
+
         }
 
 
@@ -381,6 +462,12 @@ void got_guideRespHandler(packet *pkt, int src) {
     permissions++;
     pthread_mutex_unlock(&permission_mtx);
     println("Got permission from [%d]\n", src);
+}
+
+void ended_tripHandler(packet *pkt, int src) {
+    pthread_mutex_lock(&queue_mtx);
+    deleteFromQueue(src);
+    pthread_mutex_unlock(&queue_mtx);
 }
 
 void prepare() {
@@ -406,6 +493,7 @@ void prepare() {
     addMessageHandler(INVITE, inviteHandler);
     addMessageHandler(GUIDE_REQ, response_guideReqHandler);
     addMessageHandler(GUIDE_RESP, got_guideRespHandler);
+    addMessageHandler(TRIP_END, ended_tripHandler);
 
 }
 
