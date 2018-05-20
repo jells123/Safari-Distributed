@@ -43,10 +43,12 @@ pthread_mutex_t inviteResponses_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t myGroup_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t timestamp_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t queue_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t permission_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t inviteResponses_cond = PTHREAD_COND_INITIALIZER;
 
 vector<processInfo> tab; // T == size??
 
-int inviteResponses;
+int inviteResponses, missing;
 void *receiveMessages(void *ptr) {
 
     packet pkt;
@@ -61,7 +63,7 @@ void *receiveMessages(void *ptr) {
 
         //if (pkt.type != NOT_ORG)
         //    println("wiadomość: %s od %d\n", msgTypes[pkt.type], status.MPI_SOURCE);
-        for (int i = 0; i < handlers.size(); i++) {
+        for (size_t i = 0; i < handlers.size(); i++) {
             if (handlers[i].msgType == pkt.type)
                 handlers[i].handler( &pkt, status.MPI_SOURCE ); 
         }
@@ -84,10 +86,9 @@ typedef struct orgInfo {
 int permissions;
 vector<orgInfo> queue;
 vector<int> reqPermissions; 
-pthread_mutex_t permission_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 void deleteFromQueue(int tid) {
-    for(int i = 0; i < queue.size(); i++) {
+    for(size_t i = 0; i < queue.size(); i++) {
         if(queue[i].tid == tid) {
             queue.erase(queue.begin() + i);
             return;
@@ -141,6 +142,21 @@ void reserveGuide() {
     println("Got a Guide!\n");
 }
 
+int tabSummary() {
+    int participants, countOrgs = 0;
+    for (int i = 0; i < T; i++) {
+        if (tab[i].role == ORG) {
+            countOrgs++;
+            participants = 0;
+            for (int j = 0; j < T; j++) {
+                if (tab[j].role == TUR && tab[j].value == i)
+                    participants++;
+            }
+            tab[i].value = G - participants - 1;
+        }
+    }
+    return countOrgs;
+}
 
 void comeBack() {
 
@@ -206,107 +222,149 @@ void comeBack() {
 
 vector<int> myGroup;
 vector<int> invitations;
+
+void orgsDeadlockProcess() {
+
+    int countOrgs = tabSummary();
+
+    vector<int> indices; vector<processInfo> procSorted;
+    indices.push_back(0); procSorted.push_back(tab[0]);
+    vector<int>::iterator intIt;
+    vector<processInfo>::iterator procIt;
+
+    // PROCESS INFO INSERTION SORT :)
+    size_t j;
+    for (int i = 1; i < T; i++) {
+        processInfo current = tab[i];
+
+        for (j = 0; j < procSorted.size(); j++) {
+
+            if ( (current.role == ORG && procSorted[j].role != ORG) 
+                || (current.role == ORG && procSorted[j].role == ORG && current.value < procSorted[j].value) 
+                || (current.role == ORG && procSorted[j].role == ORG && current.value == procSorted[j].value && i < indices[j])) {
+
+                intIt = indices.begin(); procIt = procSorted.begin();
+                indices.insert(intIt + j, i); procSorted.insert(procIt + j, current);
+
+                continue;
+            }
+        }
+        if (j == procSorted.size()) {
+            indices.push_back(i);
+            procSorted.push_back(current);
+        }
+    }
+    // END OF INSERTION SORT
+
+    if (countOrgs > MAX_ORGS) {
+        // nadmiarowi organizatorzy rezygnują i mogą dołączać
+        for (int i = MAX_ORGS; i < procSorted.size(); i++) {
+            if (procSorted[i].role == ORG) {
+                procSorted[i].role = TUR;
+                procSorted[i].value = -1;
+
+                if (indices[i] == tid) {
+                    myGroup.clear();
+                    currentRole = TUR;
+                }
+            }
+        }
+
+        // dla tych którzy pozostali organizatorami przydzielamy turystów
+        for (int i = 0; i < MAX_ORGS; i++) {
+            int missing = procSorted[i].value;
+            int j = MAX_ORGS;
+            while (missing > 0 && j < procSorted.size()) {
+                if (procSorted[j].role == TUR && procSorted[j].value != indices[i]) {
+                    procSorted[j].value = indices[i];
+
+                    if (indices[j] != tid) {
+                        packet msg = { timestamp, CHANGE_GROUP, indices[i] };
+                        MPI_Send( &msg, 1, MPI_PAKIET_T, indices[j], MSG_TAG, MPI_COMM_WORLD);                                         
+                    }
+                    else {
+                        myGroup.push_back(indices[i]);
+                    }
+
+                    missing--;
+
+                    if (indices[i] == tid) {
+                        myGroup.push_back(indices[j]);
+                    }
+
+                }
+                j++;
+            }
+            if (missing > 0 && j >= procSorted.size()) 
+                println("Ja nie mogę, jakiś przypał.\n");
+        }
+    }
+}
+
 void *orgThreadFunction(void *ptr) {
 
     packet pkt;
     tab[tid].role = ORG;
 
+    invitations.clear();
+    while (myGroup.size() != G-1) {
+
+        if (invitations.size() == T-1) {
+
+            orgsDeadlockProcess();
             invitations.clear();
-
-            //pthread_mutex_lock(&myGroup_mtx);
-            //int groupSize = myGroup.size(); 
-
-            while (myGroup.size() != G-1) {
-
-                if (invitations.size() == T-1) {
-
-                    for (int i = 0; i < T; i++) {
-                        if (tab[i].role == ORG) {
-                            int participants = 0;
-                            for (int j = 0; j < T; j++) {
-                                if (tab[j].role == TUR && tab[j].value == i)
-                                    participants++;
-                            }
-                            tab[i].value = G - participants - 1;
-                        }
-                    }
-
-                    vector<int> indexes; vector<processInfo> procSorted;
-                    indexes.push_back(0); procSorted.push_back(tab[0]);
-                    vector<int>::iterator intIt;
-                    vector<processInfo>::iterator procIt;
-
-                    size_t j;
-                    for (int i = 1; i < T; i++) {
-                        processInfo current = tab[i];
-
-                        for (j = 0; j < procSorted.size(); j++) {
-
-                            if ( (current.role == ORG && procSorted[j].role != ORG) 
-                                || (current.role == ORG && procSorted[j].role == ORG && current.value < procSorted[j].value) 
-                                || (current.role == ORG && procSorted[j].role == ORG && current.value == procSorted[j].value && i < indexes[j])) {
-
-                                intIt = indexes.begin(); procIt = procSorted.begin();
-                                indexes.insert(intIt + j, i); procSorted.insert(procIt + j, current);
-
-                                continue;
-                            }
-                        }
-                        if (j == procSorted.size()) {
-                                indexes.push_back(i);
-                                procSorted.push_back(current);
-                        }
-
-                    }
-                    println("Nailed it!\n");
-                    for (int i = 0; i < procSorted.size(); i++) {
-                        println("[tid %d, role %s, val %d] ", indexes[i], rolesNames[procSorted[i].role], procSorted[i].value);
-                    }
-
-                }
-
-                vector<int>::iterator it;
-                int choice, missing = G-1 - myGroup.size();
-
-                if (invitations.size() + missing > T-1) {
-                    missing = T - invitations.size();
-                }
-
-                pthread_mutex_lock(&inviteResponses_mtx);
-                inviteResponses = 0;
-                pthread_mutex_unlock(&inviteResponses_mtx);
-
-                for ( int i = 0; i < missing; ++i ) {
-                    do {
-                        choice = rand()%T;
-                        it=find(invitations.begin(), invitations.end(), choice);
-                    } while (choice == tid || it != invitations.end());
-                    invitations.push_back(choice);
-                }
-
-                pthread_mutex_lock(&timestamp_mtx);
-                timestamp++;
-                packet msg = { timestamp, INVITE, missing };                // jakis mtx?
-                pthread_mutex_unlock(&timestamp_mtx);
-
-                for (int i = 0; i < missing; ++i) {
-                    int idx = invitations.size() - 1 - i;
-                    MPI_Send( &msg, 1, MPI_PAKIET_T, invitations[idx], MSG_TAG, MPI_COMM_WORLD);
-                    println("%d invited :) \n", invitations[idx]);
-                }
-
-                while (inviteResponses != missing) ;
-
+            if (currentRole == TUR) {
+                println("I'm not ORG anymore...\n");
+                return (void *)0;
             }
-            println("I've got a group!\n");
-            //while (true) ;
-            reserveGuide();
-            comeBack();
-            while(true);
-        //}
+        }
 
-    //}
+        else {
+            vector<int>::iterator it;
+            int choice;
+            missing = G-1 - myGroup.size();
 
+            if (invitations.size() + missing > T-1) {
+                missing = T - invitations.size();
+            }
+
+            pthread_mutex_lock(&inviteResponses_mtx);
+            inviteResponses = 0;
+            pthread_mutex_unlock(&inviteResponses_mtx);
+
+            for ( int i = 0; i < missing; ++i ) {
+                do {
+                    choice = rand()%T;
+                    it=find(invitations.begin(), invitations.end(), choice);
+                } while (choice == tid || it != invitations.end());
+                invitations.push_back(choice);
+            }
+
+            pthread_mutex_lock(&timestamp_mtx);
+            timestamp++;
+            packet msg = { timestamp, INVITE, missing };                // jakis mtx?
+            pthread_mutex_unlock(&timestamp_mtx);
+
+            for (int i = 0; i < missing; ++i) {
+                int idx = invitations.size() - 1 - i;
+                MPI_Send( &msg, 1, MPI_PAKIET_T, invitations[idx], MSG_TAG, MPI_COMM_WORLD);
+                println("%d invited :) \n", invitations[idx]);
+            }
+
+            pthread_mutex_lock(&inviteResponses_mtx);
+            while (inviteResponses != missing)
+                pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
+            pthread_mutex_unlock(&inviteResponses_mtx);
+  
+       }
+
+    }
+    println("I've got a group!\n");
+    
+    reserveGuide();
+	comeBack();
+    while(true);
+            
     return (void *)0;
 
 }
@@ -366,6 +424,19 @@ void inviteHandler(packet *pkt, int src) {
     pthread_mutex_unlock(&myGroup_mtx);
 }
 
+void change_groupHandler(packet *pkt, int src) {
+    tab[tid].role = TUR;
+    tab[tid].value = src;
+    if (myGroup.size() > 0) {
+        println("Group change! From %d to %d\n", myGroup[0], src);
+        myGroup.clear();
+    }
+    myGroup.push_back(src);
+
+    tab[src].role = ORG;
+
+}
+
 void not_orgHandler(packet *pkt, int src) {
     tab[src].role = TUR;
     int touristsCount = 0;
@@ -388,18 +459,22 @@ void acceptHandler(packet *pkt, int src) {
     pthread_mutex_lock(&inviteResponses_mtx);
     inviteResponses++;
     myGroup.push_back(src);
-    pthread_mutex_unlock(&inviteResponses_mtx);
 
     tab[src].role = TUR;
     tab[src].value = tid;
 
     println("%d joining my group!", src);
+
+    if (inviteResponses == missing) {
+        pthread_cond_signal(&inviteResponses_cond);
+    }
+
+    pthread_mutex_unlock(&inviteResponses_mtx);
 }
 
 void reject_hasgroupHandler(packet *pkt, int src) {
     pthread_mutex_lock(&inviteResponses_mtx);
     inviteResponses++;
-    pthread_mutex_unlock(&inviteResponses_mtx);
 
     tab[src].role = TUR;
     tab[src].value = pkt->info_val;
@@ -407,17 +482,28 @@ void reject_hasgroupHandler(packet *pkt, int src) {
 
     println("%d already has group :/\n", src);
 
+    if (inviteResponses == missing) {
+        pthread_cond_signal(&inviteResponses_cond);
+    }
+
+    pthread_mutex_unlock(&inviteResponses_mtx);
+
 }
 
 void reject_isorgHandler(packet *pkt, int src) {
     pthread_mutex_lock(&inviteResponses_mtx);
     inviteResponses++;
-    pthread_mutex_unlock(&inviteResponses_mtx);
 
     tab[src].role = ORG;
     tab[src].value = pkt->info_val;
 
     println("%d is org too. \n", src);
+
+    if (inviteResponses == missing) {
+        pthread_cond_signal(&inviteResponses_cond);
+    }
+
+    pthread_mutex_unlock(&inviteResponses_mtx);
 }
 
 void response_guideReqHandler(packet *pkt, int src) {                   // osobny watek do odpowiadania na req o przewodnika?
