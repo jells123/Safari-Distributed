@@ -79,7 +79,6 @@ typedef struct orgInfo {
 } orgInfo;
 
 int permissions;
-int sentPer;
 vector<orgInfo> queue;
 vector<int> reqPermissions; 
 pthread_mutex_t permission_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -103,13 +102,12 @@ void reserveGuide() {
     queue.push_back(myInfo);
 
     permissions = 0;
-    sentPer = 0;
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
             println("Sending req to [%d]", i);
-            sentPer++;
+            reqPermissions.push_back(i);
         }
         if(permissions >= (MAX_ORGS - P))
             break;
@@ -117,11 +115,11 @@ void reserveGuide() {
 
     if(permissions < (MAX_ORGS - P)) {
         int i = 0;
-        while(sentPer < MAX_ORGS - 1) {
-            if (i != tid) {
+        while(reqPermissions.size() < MAX_ORGS - 1) {
+            if(i != tid && find(reqPermissions.begin(), reqPermissions.end(), i) == reqPermissions.end()) {
+                reqPermissions.push_back(i);
                 MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
                 println("Sending req to [%d]", i);
-                sentPer++;
             }
             i++;
             if(permissions >= (MAX_ORGS - P))
@@ -355,8 +353,11 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
         orgInfo hisInfo = { pkt->timestamp, src };
         queue.push_back(hisInfo);
 
-        if(queue.size() <= P && (myGroup.size() != G-1 ||(myGroup.size() == G-1 && src < tid))){
-            
+        if(queue.size() <= P &&
+            (myGroup.size() != G-1 || (myGroup.size() == G-1 
+                && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp 
+                    && src < tid))))){
+                
             pthread_mutex_lock(&timestamp_mtx);
             timestamp++;
             pthread_mutex_unlock(&timestamp_mtx);
@@ -364,9 +365,9 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
             packet msg = { timestamp, GUIDE_RESP, 0 };
             MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
             println("Ok, I let you [%d] reserve a guide\n", src);
-
+            
         } else {
-            println("I won't let you [%d] reserve a guide! For now..\n", src);
+            println("I won't let you [%d] reserve a guide! For now.. My timestamp: %d, his: %d\n", src, timestamp, pkt->timestamp);
         }
 
 
