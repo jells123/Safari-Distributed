@@ -4,7 +4,7 @@
 const int ROOT = 0;
 const int MSG_TAG = 100;
 
-const int ORG_PROBABILITY = 30;
+const int ORG_PROBABILITY = 75;
 
 const char* rolesNames[] = {
 	"Nieznana",
