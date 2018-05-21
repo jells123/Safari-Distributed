@@ -25,8 +25,8 @@ void not_orgHandler(packet *pkt, int src);
 void acceptHandler(packet *pkt, int src);
 void reject_isorgHandler(packet *pkt, int src);
 void reject_hasgroupHandler(packet *pkt, int src);
-void response_guideReqHandler(packet *pkt, int src);
-void got_guideRespHandler(packet *pkt, int src);
-void ended_tripHandler(packet *pkt, int src);
+void guide_reqHandler(packet *pkt, int src);
+void guide_respHandler(packet *pkt, int src);
+void trip_endHandler(packet *pkt, int src);
 
 #endif

@@ -76,7 +76,7 @@ void reject_isorgHandler(packet *pkt, int src) {
 
     println("%d is org too. \n", src);
 
-    if (inviteResponses == missing) {
+    if (inviteResponses >= missing) {
         pthread_cond_signal(&inviteResponses_cond);
     }
 
@@ -93,7 +93,7 @@ void reject_hasgroupHandler(packet *pkt, int src) {
 
     println("%d already has group :/\n", src);
 
-    if (inviteResponses == missing) {
+    if (inviteResponses >= missing) {
         pthread_cond_signal(&inviteResponses_cond);
     }
 
@@ -111,15 +111,17 @@ void acceptHandler(packet *pkt, int src) {
 
     println("%d joining my group!", src);
 
-    if (inviteResponses == missing) {
+    if (inviteResponses >= missing) {
         pthread_cond_signal(&inviteResponses_cond);
     }
 
     pthread_mutex_unlock(&inviteResponses_mtx);
 }
 
-void response_guideReqHandler(packet *pkt, int src) {                   // osobny watek do odpowiadania na req o przewodnika?
-    if(currentRole == ORG) {
+void guide_reqHandler(packet *pkt, int src) { 
+	tab[src].role = ORG;
+
+    if (currentRole == ORG) {
 
         orgInfo hisInfo = { pkt->timestamp, src };
             
@@ -154,7 +156,7 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
     }
 }
 
-void got_guideRespHandler(packet *pkt, int src) {
+void guide_respHandler(packet *pkt, int src) {
     pthread_mutex_lock(&permission_mtx);
     permissions++;
     if (permissions >= (MAX_ORGS - P)) {
@@ -164,8 +166,22 @@ void got_guideRespHandler(packet *pkt, int src) {
     pthread_mutex_unlock(&permission_mtx);
 }
 
-void ended_tripHandler(packet *pkt, int src) {
-    //pthread_mutex_lock(&queue_mtx);
+void trip_endHandler(packet *pkt, int src) {
+	tab[src].role = UNKNOWN;
+	tab[src].value = -1;
+
+	for (int i = 0; i < size; i++) {
+		if (tab[i].role == TUR && tab[i].value == src) {
+			tab[i].role = UNKNOWN;
+			tab[i].value = -1;
+		}
+	}
+
+	if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
+		currentRole = UNKNOWN;
+		myGroup.empty();
+	}
+	// ...
+
     deleteFromQueue(src);
-    //pthread_mutex_unlock(&queue_mtx);
 }

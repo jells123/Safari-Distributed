@@ -78,6 +78,7 @@ void deleteFromQueue(int id) {
 }
 
 void reserveGuide() {
+    
     println("GIMME GUIDE!\n");
     pthread_mutex_lock(&timestamp_mtx);
     timestamp++;
@@ -300,6 +301,7 @@ void *orgThreadFunction(void *ptr) {
 
         if (invitations.size() == T-1) {
 
+            println("Oh no, deadlock occured.\n");
             orgsDeadlockProcess();
             invitations.clear();
             if (currentRole == TUR) {
@@ -411,9 +413,9 @@ void prepare() {
     addMessageHandler(REJECT_HASGROUP, reject_hasgroupHandler);
     addMessageHandler(REJECT_ISORG, reject_isorgHandler);
     addMessageHandler(INVITE, inviteHandler);
-    addMessageHandler(GUIDE_REQ, response_guideReqHandler);
-    addMessageHandler(GUIDE_RESP, got_guideRespHandler);
-    addMessageHandler(TRIP_END, ended_tripHandler);
+    addMessageHandler(GUIDE_REQ, guide_reqHandler);
+    addMessageHandler(GUIDE_RESP, guide_respHandler);
+    addMessageHandler(TRIP_END, trip_endHandler);
     addMessageHandler(CHANGE_GROUP, change_groupHandler);
 
 }
