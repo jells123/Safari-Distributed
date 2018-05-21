@@ -93,8 +93,8 @@ void reserveGuide() {
             println("(1) Sending req to [%d]", i);
             reqPermissions.push_back(i);
         }
-        //if(permissions >= (MAX_ORGS - P))
-        //    break;
+        if(permissions >= (MAX_ORGS - P))
+            break;
     }
 
     pthread_mutex_lock(&permission_mtx);
