@@ -44,7 +44,7 @@ void *receiveMessages(void *ptr) {
         //println("czekam na wiadomości...\n");
         pthread_mutex_lock(&timestamp_mtx);
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        timestamp = max(timestamp, pkt.timestamp);
+        timestamp = max(++timestamp, pkt.timestamp);
         pthread_mutex_unlock(&timestamp_mtx);
 
         for (size_t i = 0; i < handlers.size(); i++) {
@@ -62,16 +62,17 @@ void *receiveMessages(void *ptr) {
     return (void *)0;
 }
 
-void deleteFromQueue(int tid) {
+void deleteFromQueue(int id) {
     pthread_mutex_lock(&queue_mtx);
     for(size_t i = 0; i < queue.size(); i++) {
-        if(queue[i].tid == tid) {
+        if(queue[i].tid == id) {
+            println("Removing %d from queue\n", id);
             queue.erase(queue.begin() + i);
             pthread_mutex_unlock(&queue_mtx);
             return;
         }
     }
-    println("%d wasn't in my queue:[\n", tid);
+    println("%d wasn't in my queue:[\n", id);
     pthread_mutex_unlock(&queue_mtx);
 }
 
@@ -189,7 +190,7 @@ void comeBack() {
 
         packet msg = { timestamp, GUIDE_RESP, 0 };
         
-        if(orgSorted[i].tid != tid) {
+        if (orgSorted[i].tid != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, orgSorted[i].tid, MSG_TAG, MPI_COMM_WORLD);
             println("Ok, I let you [%d] reserve a guide\n", orgSorted[i].tid);
         } else
