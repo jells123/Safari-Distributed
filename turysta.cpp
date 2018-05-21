@@ -42,8 +42,8 @@ void *receiveMessages(void *ptr) {
     while ( true ) {
 
         //println("czekam na wiadomości...\n");
-        pthread_mutex_lock(&timestamp_mtx);
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        pthread_mutex_lock(&timestamp_mtx);
         timestamp = max(++timestamp, pkt.timestamp);
         pthread_mutex_unlock(&timestamp_mtx);
 
@@ -72,7 +72,8 @@ void deleteFromQueue(int id) {
             return;
         }
     }
-    println("%d wasn't in my queue:[\n", id);
+    if (!queue.empty())
+        println("%d wasn't in my queue:[\n", id);
     pthread_mutex_unlock(&queue_mtx);
 }
 
@@ -120,7 +121,7 @@ void reserveGuide() {
     pthread_mutex_unlock(&permission_mtx);
 
     //pthread_mutex_lock(&queue_mtx);
-    deleteFromQueue(tid);
+    //deleteFromQueue(tid);
     //pthread_mutex_unlock(&queue_mtx);
 
     println("Got a Guide!\n");
@@ -154,6 +155,9 @@ void comeBack() {
     pthread_mutex_unlock(&timestamp_mtx);
 
     pthread_mutex_lock(&queue_mtx);
+
+    deleteFromQueue(tid);
+
     vector<orgInfo> orgSorted;
     orgSorted.push_back(queue[0]);
     vector<orgInfo>::iterator procIt;
@@ -179,7 +183,7 @@ void comeBack() {
 
     }
 
-    queue.clear();
+    //queue.clear();
     pthread_mutex_unlock(&queue_mtx);
     println("(comeBack) Nailed it!\n");
 
