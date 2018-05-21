@@ -121,6 +121,12 @@ void acceptHandler(packet *pkt, int src) {
 void response_guideReqHandler(packet *pkt, int src) {                   // osobny watek do odpowiadania na req o przewodnika?
     if(currentRole == ORG) {
 
+        orgInfo hisInfo = { pkt->timestamp, src };
+            
+        pthread_mutex_lock(&queue_mtx);    
+        queue.push_back(hisInfo);
+        pthread_mutex_unlock(&queue_mtx);
+
         //if(givenResp < P &&
         if(myGroup.size() != G-1 || (myGroup.size() == G-1 
             && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp 
@@ -137,12 +143,6 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
             //givenResp++;
             
         } else {
-            orgInfo hisInfo = { pkt->timestamp, src };
-            
-            pthread_mutex_lock(&queue_mtx);    
-            queue.push_back(hisInfo);
-            pthread_mutex_unlock(&queue_mtx);
-
             //println("I won't let you [%d] reserve a guide! For now.. My timestamp: %d, his: %d\n", src, timestamp, pkt->timestamp);
             println("I won't let you [%d] reserve a guide! For now..\n", src);
 

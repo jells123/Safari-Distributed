@@ -72,13 +72,8 @@ void deleteFromQueue(int id) {
             return;
         }
     }
-
-    if (!queue.empty()) {
+    if (!queue.empty())
         println("%d wasn't in my queue:[\n", id);
-    }
-    else {
-        ;// println("Queue was empty. (%d)\n", id);
-    }
     pthread_mutex_unlock(&queue_mtx);
 }
 
@@ -127,7 +122,7 @@ void reserveGuide() {
     pthread_mutex_unlock(&permission_mtx);
 
     //pthread_mutex_lock(&queue_mtx);
-    deleteFromQueue(tid);
+    //deleteFromQueue(tid);
     //pthread_mutex_unlock(&queue_mtx);
 
     println("Got a Guide!\n");
@@ -161,6 +156,9 @@ void comeBack() {
     pthread_mutex_unlock(&timestamp_mtx);
 
     pthread_mutex_lock(&queue_mtx);
+
+    deleteFromQueue(tid);
+
     vector<orgInfo> orgSorted;
     orgSorted.push_back(queue[0]);
     vector<orgInfo>::iterator procIt;
@@ -186,7 +184,7 @@ void comeBack() {
 
     }
 
-    queue.clear();
+    //queue.clear();
     pthread_mutex_unlock(&queue_mtx);
     println("(comeBack) Nailed it!\n");
 
