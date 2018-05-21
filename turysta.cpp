@@ -42,8 +42,8 @@ void *receiveMessages(void *ptr) {
     while ( true ) {
 
         //println("czekam na wiadomości...\n");
-        pthread_mutex_lock(&timestamp_mtx);
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        pthread_mutex_lock(&timestamp_mtx);
         timestamp = max(++timestamp, pkt.timestamp);
         pthread_mutex_unlock(&timestamp_mtx);
 
@@ -72,11 +72,18 @@ void deleteFromQueue(int id) {
             return;
         }
     }
-    println("%d wasn't in my queue:[\n", id);
+
+    if (!queue.empty()) {
+        println("%d wasn't in my queue:[\n", id);
+    }
+    else {
+        ;// println("Queue was empty. (%d)\n", id);
+    }
     pthread_mutex_unlock(&queue_mtx);
 }
 
 void reserveGuide() {
+    println("GIMME GUIDE!\n");
     pthread_mutex_lock(&timestamp_mtx);
     timestamp++;
     packet msg = { timestamp, GUIDE_REQ, 0 };
