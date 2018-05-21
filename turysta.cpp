@@ -18,7 +18,9 @@ pthread_mutex_t myGroup_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t timestamp_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t queue_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t permission_mtx = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_cond_t inviteResponses_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t permission_cond = PTHREAD_COND_INITIALIZER;
 
 MPI_Status status;
 Role currentRole;
@@ -40,14 +42,11 @@ void *receiveMessages(void *ptr) {
     while ( true ) {
 
         //println("czekam na wiadomości...\n");
+        pthread_mutex_lock(&timestamp_mtx);
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        
-        pthread_mutex_lock(&timestamp_mtx);                 // jakis mtx tutaj?
         timestamp = max(timestamp, pkt.timestamp);
         pthread_mutex_unlock(&timestamp_mtx);
 
-        //if (pkt.type != NOT_ORG)
-        //    println("wiadomość: %s od %d\n", msgTypes[pkt.type], status.MPI_SOURCE);
         for (size_t i = 0; i < handlers.size(); i++) {
             if (handlers[i].msgType == pkt.type)
                 handlers[i].handler( &pkt, status.MPI_SOURCE ); 
@@ -64,20 +63,23 @@ void *receiveMessages(void *ptr) {
 }
 
 void deleteFromQueue(int tid) {
+    pthread_mutex_lock(&queue_mtx);
     for(size_t i = 0; i < queue.size(); i++) {
         if(queue[i].tid == tid) {
             queue.erase(queue.begin() + i);
+            pthread_mutex_unlock(&queue_mtx);
             return;
         }
     }
+    println("%d wasn't in my queue:[\n", tid);
+    pthread_mutex_unlock(&queue_mtx);
 }
 
 void reserveGuide() {
-    pthread_mutex_lock(&timestamp_mtx);             // jakis mtx tutaj?
+    pthread_mutex_lock(&timestamp_mtx);
     timestamp++;
     packet msg = { timestamp, GUIDE_REQ, 0 };
     orgInfo myInfo = { timestamp, tid };
-    pthread_mutex_unlock(&timestamp_mtx);
 
     pthread_mutex_lock(&queue_mtx);
     queue.push_back(myInfo);
@@ -88,32 +90,37 @@ void reserveGuide() {
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-            println("Sending req to [%d]", i);
+            println("(1) Sending req to [%d]", i);
             reqPermissions.push_back(i);
         }
-        if(permissions >= (MAX_ORGS - P))
-            break;
+        //if(permissions >= (MAX_ORGS - P))
+        //    break;
     }
 
-    if(permissions < (MAX_ORGS - P)) {
+    pthread_mutex_lock(&permission_mtx);
+    if (permissions < (MAX_ORGS - P)) {
         int i = 0;
-        while(reqPermissions.size() < MAX_ORGS - 1) {
+        while (reqPermissions.size() < MAX_ORGS - 1) {
             if(i != tid && find(reqPermissions.begin(), reqPermissions.end(), i) == reqPermissions.end()) {
                 reqPermissions.push_back(i);
                 MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-                println("Sending req to [%d]", i);
+                println("(2) Sending req to [%d]", i);
             }
             i++;
             if(permissions >= (MAX_ORGS - P))
                 break;
         }
-
-        while(permissions < (MAX_ORGS - P));
+        pthread_mutex_unlock(&timestamp_mtx);
+        while (permissions < (MAX_ORGS - P))
+            pthread_cond_wait(&permission_cond, &permission_mtx);
     }
+    else
+        pthread_mutex_unlock(&timestamp_mtx);
+    pthread_mutex_unlock(&permission_mtx);
 
-    pthread_mutex_lock(&queue_mtx);
+    //pthread_mutex_lock(&queue_mtx);
     deleteFromQueue(tid);
-    pthread_mutex_unlock(&queue_mtx);
+    //pthread_mutex_unlock(&queue_mtx);
 
     println("Got a Guide!\n");
 }
@@ -138,14 +145,14 @@ void comeBack() {
 
     println("Ended trip\n");
 
-    packet msg = { timestamp, TRIP_END, 0 };
-
+    pthread_mutex_lock(&timestamp_mtx);
+    packet msg = { ++timestamp, TRIP_END, 0 };
     for (int i = 0; i < size; i++)
         if (i != tid)
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+    pthread_mutex_unlock(&timestamp_mtx);
 
     pthread_mutex_lock(&queue_mtx);
-
     vector<orgInfo> orgSorted;
     orgSorted.push_back(queue[0]);
     vector<orgInfo>::iterator procIt;
@@ -172,28 +179,31 @@ void comeBack() {
     }
 
     queue.clear();
-
     pthread_mutex_unlock(&queue_mtx);
-    println("Nailed it!\n");
+    println("(comeBack) Nailed it!\n");
 
     for (int i = 0; i < orgSorted.size(); i++) {
 
         pthread_mutex_lock(&timestamp_mtx);
         timestamp++;
-        pthread_mutex_unlock(&timestamp_mtx);
 
         packet msg = { timestamp, GUIDE_RESP, 0 };
         
         if(orgSorted[i].tid != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, orgSorted[i].tid, MSG_TAG, MPI_COMM_WORLD);
             println("Ok, I let you [%d] reserve a guide\n", orgSorted[i].tid);
-        } else {
+        } else
             println("Why am I still in the queue?\n");
-        }
+        pthread_mutex_unlock(&timestamp_mtx);
         //println("[timestamp: %d, tid: %d]\n", orgSorted[i].timestamp, orgSorted[i].tid);
     }
 
 }
+
+/*
+MUTEX NA TAB?
+chyba tak!
+*/
 
 void orgsDeadlockProcess() {
 
@@ -244,7 +254,7 @@ void orgsDeadlockProcess() {
 
         // dla tych którzy pozostali organizatorami przydzielamy turystów
         for (int i = 0; i < MAX_ORGS; i++) {
-            int missing = procSorted[i].value;
+            missing = procSorted[i].value;
             int j = MAX_ORGS;
             while (missing > 0 && j < procSorted.size()) {
                 if (procSorted[j].role == TUR && procSorted[j].value != indices[i]) {

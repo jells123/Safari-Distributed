@@ -41,7 +41,7 @@ extern int T, G, P, MAX_ORGS;
 extern int inviteResponses, missing, permissions;
 
 extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx;
-extern pthread_cond_t inviteResponses_cond;
+extern pthread_cond_t inviteResponses_cond, permission_cond;
 
 extern vector<processInfo> tab; // T == size??
 extern vector<orgInfo> queue;

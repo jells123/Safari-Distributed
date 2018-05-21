@@ -124,7 +124,7 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
         //if(givenResp < P &&
         if(myGroup.size() != G-1 || (myGroup.size() == G-1 
             && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp 
-                && src < tid)))){
+                && src < tid)))) {
                 
             pthread_mutex_lock(&timestamp_mtx);
             timestamp++;
@@ -157,12 +157,15 @@ void response_guideReqHandler(packet *pkt, int src) {                   // osobn
 void got_guideRespHandler(packet *pkt, int src) {
     pthread_mutex_lock(&permission_mtx);
     permissions++;
-    pthread_mutex_unlock(&permission_mtx);
+    if (permissions >= (MAX_ORGS - P)) {
+    	pthread_cond_signal(&permission_cond);
+    }
     println("Got permission from [%d]\n", src);
+    pthread_mutex_unlock(&permission_mtx);
 }
 
 void ended_tripHandler(packet *pkt, int src) {
-    pthread_mutex_lock(&queue_mtx);
+    //pthread_mutex_lock(&queue_mtx);
     deleteFromQueue(src);
-    pthread_mutex_unlock(&queue_mtx);
+    //pthread_mutex_unlock(&queue_mtx);
 }
