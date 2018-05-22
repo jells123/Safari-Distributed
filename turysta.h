@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 #include <mpi.h>
 
 #include <time.h>
@@ -11,6 +12,7 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <signal.h>
 
 #include "packet.h"
 #include "inits.h"
@@ -49,6 +51,7 @@ extern vector<orgInfo> queue;
 extern vector<int> reqPermissions, myGroup, invitations;
 
 extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, TIME_BEATED;
+extern volatile sig_atomic_t FORCE_END;
 
 void *receiveMessages(void *ptr);
 void deleteFromQueue(int tid);
@@ -60,6 +63,8 @@ void orgsDeadlockProcess();
 void *orgThreadFunction(void *ptr);
 void randomRole();
 void prepare();
+void interruptHandler(int s);
+void clearResources();
 
 int main(int argc, char * * argv);
 

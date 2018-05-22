@@ -2,7 +2,7 @@
 #define STACKH
 
 #include <stdlib.h> 
-#include <stdio.h> 
+#include <iostream> 
 #include <mpi.h> 
 #include <pthread.h>
 

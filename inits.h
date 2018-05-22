@@ -3,7 +3,7 @@
 
 #include <mpi.h>
 #include <stdlib.h>
-#include <stdio.h>
+#include <iostream>
 #include <stddef.h>
 #include <cstring>
 #include <vector>

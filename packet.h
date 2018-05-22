@@ -3,7 +3,7 @@
 
 #include <mpi.h>
 #include <unistd.h>
-#include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
 #include <math.h>
 
