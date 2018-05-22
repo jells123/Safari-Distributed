@@ -179,7 +179,7 @@ void trip_endHandler(packet *pkt, int src) {
 	}
 
   if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
-    myGroup.empty();
+    myGroup.clear();
     currentRole = UNKNOWN;
   }
 	// ...

@@ -50,7 +50,7 @@ extern vector<processInfo> tab; // T == size??
 extern vector<orgInfo> queue;
 extern vector<int> reqPermissions, myGroup, invitations;
 
-extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, TIME_BEATED;
+extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, BEATED_PROBABILITY, TIME_BEATED, GUIDE_TIME_BEATED;
 extern volatile sig_atomic_t FORCE_END;
 
 void *receiveMessages(void *ptr);

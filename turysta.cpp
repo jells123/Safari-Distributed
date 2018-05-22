@@ -12,7 +12,9 @@ int ROOT = 0;
 int MSG_TAG = 100;
 int ORG_PROBABILITY = 75;
 int GUIDE_BEATED_PROBABILITY = 20;
-int TIME_BEATED = 5;
+int BEATED_PROBABILITY = 30;
+int TIME_BEATED = 30;
+int GUIDE_TIME_BEATED = 5;
 bool tripLasts = false;
 volatile sig_atomic_t FORCE_END = 0;
 
@@ -197,7 +199,35 @@ void *waitForTripEnd(void *ptr) {
     return (void *)0;
 }
 
+void *gotBeated(void *ptr) {
+    int czy_pobity = rand() % 100;
+    if (czy_pobity < BEATED_PROBABILITY) {
+        println("I got beated!\n");
+        sleep(TIME_BEATED);
+    }
+
+    pthread_mutex_lock(&tripend_mtx);
+    tripLasts = false;
+    pthread_cond_signal(&tripend_cond);
+    pthread_mutex_unlock(&tripend_mtx);
+
+    return (void *)0;
+}
+
 void goForTrip() {
+    println("okay so im here\n");
+
+    pthread_create( &trip_th, NULL, gotBeated, 0);
+    pthread_mutex_lock(&tripend_mtx);
+    tripLasts = true;
+    pthread_mutex_unlock(&tripend_mtx);
+
+    while (tripLasts)
+        pthread_cond_wait(&tripend_cond, &tripend_mtx);
+    pthread_join(trip_th, NULL);
+}
+
+void goForTripORG() {
     println("Going on a trip! :)\n");
     pthread_create( &trip_th, NULL, waitForTripEnd, 0);
 
@@ -208,6 +238,8 @@ void goForTrip() {
     while (tripLasts)
         pthread_cond_wait(&tripend_cond, &tripend_mtx);
     pthread_join(trip_th, NULL);
+
+    //goForTrip();
 }
 
 int tabSummary() {
@@ -429,7 +461,7 @@ void *orgThreadFunction(void *ptr) {
     println("I've got a group!\n");
 
     reserveGuide();
-    goForTrip();
+    goForTripORG();
 	comeBack();
     currentRole = UNKNOWN;
     return (void *)0;
