@@ -1,13 +1,13 @@
 #ifndef TURYSTAH
 #define TURYSTAH
 
-#include <stdlib.h> 
-#include <stdio.h> 
-#include <mpi.h> 
+#include <stdlib.h>
+#include <stdio.h>
+#include <mpi.h>
 
-#include <time.h> 
-#include <iostream> 
-#include <cstdlib> 
+#include <time.h>
+#include <iostream>
+#include <cstdlib>
 #include <vector>
 #include <set>
 #include <algorithm>
@@ -39,25 +39,26 @@ extern Role currentRole;
 extern MPI_Status status;
 extern int T, G, P, MAX_ORGS;
 extern int inviteResponses, missing, permissions;
+extern bool tripLasts;
 
-extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx;
-extern pthread_cond_t inviteResponses_cond, permission_cond;
+extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, tripend_mtx;
+extern pthread_cond_t inviteResponses_cond, permission_cond, tripend_cond;
 
 extern vector<processInfo> tab; // T == size??
 extern vector<orgInfo> queue;
 extern vector<int> reqPermissions, myGroup, invitations;
 
-extern int ROOT, MSG_TAG, ORG_PROBABILITY;
+extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, TIME_BEATED;
 
 void *receiveMessages(void *ptr);
 void deleteFromQueue(int tid);
-void reserveGuide(); 
+void reserveGuide();
 int tabSummary();
-void comeBack(); 
+void comeBack();
 
 void orgsDeadlockProcess();
 void *orgThreadFunction(void *ptr);
-void randomRole(); 
+void randomRole();
 void prepare();
 
 int main(int argc, char * * argv);

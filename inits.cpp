@@ -1,6 +1,6 @@
 #include "inits.h"
 
-pthread_t sender_th, receiver_th;
+pthread_t sender_th, receiver_th, trip_th;
 int size, tid, timestamp;
 
 void check_thread_support(int provided)
@@ -23,7 +23,7 @@ void check_thread_support(int provided)
 	        break;
         case MPI_THREAD_MULTIPLE: printf("Pełne wsparcie dla wątków\n");
 	        break;
-        default: 
+        default:
             printf("Nikt nic nie wie\n");
     }
 }
