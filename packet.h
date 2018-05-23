@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <math.h>
+#include <csignal>
 
 enum MsgType {
 

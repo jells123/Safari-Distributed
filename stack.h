@@ -5,6 +5,7 @@
 #include <iostream> 
 #include <mpi.h> 
 #include <pthread.h>
+#include <csignal>
 
 #include "packet.h"
 

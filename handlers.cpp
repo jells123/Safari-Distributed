@@ -14,7 +14,7 @@ void addMessageHandler(MsgType type, void (*handler)(packet*, int)) {
 }
 
 void inviteHandler(packet *pkt, int src) {
-    pthread_mutex_lock(&myGroup_mtx);                   // juz jest w mtx?
+    pthread_mutex_lock(&myGroup_mtx);
     timestamp++;
 
     if (currentRole == TUR && myGroup.empty()) {
@@ -32,7 +32,6 @@ void inviteHandler(packet *pkt, int src) {
     }
 
     tab[src].role = ORG;
-
     pthread_mutex_unlock(&myGroup_mtx);
 }
 
@@ -91,7 +90,7 @@ void reject_hasgroupHandler(packet *pkt, int src) {
     tab[src].value = pkt->info_val;
     tab[pkt->info_val].role = ORG;
 
-    println("%d already has group :/\n", src);
+    println("%d already has group -> %d :/\n", src, pkt->info_val);
 
     if (inviteResponses >= missing || FORCE_END == 1) {
         pthread_cond_signal(&inviteResponses_cond);
@@ -152,7 +151,7 @@ void guide_reqHandler(packet *pkt, int src) {
 
 
     } else {
-        println("I'm not an ogr, sth went wrong...\n");
+        println("I'm not an ogr (I'm %d), sth went wrong...\n", currentRole);
     }
 }
 

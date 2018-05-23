@@ -12,7 +12,7 @@
 #include <vector>
 #include <set>
 #include <algorithm>
-#include <signal.h>
+#include <csignal>
 
 #include "packet.h"
 #include "inits.h"

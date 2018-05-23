@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <cstring>
 #include <vector>
+#include <csignal>
 
 #include <pthread.h>
 #include "packet.h"

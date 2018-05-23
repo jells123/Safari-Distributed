@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <cstring>
 #include <vector>
+#include <csignal>
 
 #include "packet.h"
 #include "turysta.h"
