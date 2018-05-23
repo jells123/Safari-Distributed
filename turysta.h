@@ -41,10 +41,10 @@ extern Role currentRole;
 extern MPI_Status status;
 extern int T, G, P, MAX_ORGS;
 extern int inviteResponses, missing, permissions;
-extern bool tripLasts;
+extern bool tripLasts, beated;
 
-extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, tripend_mtx;
-extern pthread_cond_t inviteResponses_cond, permission_cond, tripend_cond;
+extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, tripend_mtx, beated_mtx;
+extern pthread_cond_t inviteResponses_cond, permission_cond, tripend_cond, beated_cond;
 
 extern vector<processInfo> tab; // T == size??
 extern vector<orgInfo> queue;

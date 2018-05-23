@@ -1,6 +1,6 @@
 #include "inits.h"
 
-pthread_t sender_th, receiver_th, trip_th;
+pthread_t sender_th, receiver_th, trip_th, beated_th;
 int size, tid, timestamp;
 
 void check_thread_support(int provided)

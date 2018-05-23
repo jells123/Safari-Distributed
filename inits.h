@@ -34,7 +34,7 @@
 
 #define println(FORMAT, ...) printf("%c[%d;%dm [L: %d] [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(tid/7))%2, 31+(6+tid)%7, timestamp, tid, ##__VA_ARGS__, 27,0,37);
 
-extern pthread_t sender_th, receiver_th, trip_th;
+extern pthread_t sender_th, receiver_th, trip_th, beated_th;
 extern int size, tid, timestamp;
 
 // extern char** rolesNames, msgTypes;
