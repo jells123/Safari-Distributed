@@ -1,5 +1,5 @@
 #include "handlers.h"
-//#include "turysta.h"
+//#include "turysta.cpp"
 
 std::vector<messageHandler> handlers;
 
@@ -156,7 +156,7 @@ void guide_reqHandler(packet *pkt, int src) {
         }
 
     } else {
-        println("I'm not an ogr (I'm %d), sth went wrong...\n", currentRole);
+        println("I'm not an ogr anymore...\n");
     }
 }
 

@@ -88,7 +88,7 @@ void *receiveMessages(void *ptr) {
     while ( FORCE_END == 0 ) {
 
         if (currentRole == UNKNOWN) {
-          randomRole();
+            randomRole();
         }
 
         MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -128,8 +128,8 @@ void deleteFromQueue(int id) {
         }
     }
     if (!queue.empty())
-        println("%d wasn't in my queue:[\n", id);
-    pthread_mutex_unlock(&queue_mtx);
+        println("%d wasn't in my queue\n", id);         // moze sie zdarzyc ze nie bedzie jesli nie wyslal do nas req 
+    pthread_mutex_unlock(&queue_mtx);                   // (inne mu wystarczyly do zarezerwowania przewodnika), wiec to nie blad jak sie pojawi to czasem chyba ;)
 }
 
 
@@ -451,8 +451,8 @@ void *orgThreadFunction(void *ptr) {
     while (myGroup.size() != groupSize) {
 
         if (FORCE_END) {
-          clearResources();
-          return (void *)0;
+            clearResources();
+            return (void *)0;
         }
 
         if (invitations.size() == numberOfTurists) {
@@ -497,7 +497,6 @@ void *orgThreadFunction(void *ptr) {
                 MPI_Send( &msg, 1, MPI_PAKIET_T, invitations[idx], MSG_TAG, MPI_COMM_WORLD);
                 println("%d invited :) \n", invitations[idx]);
             }
-
             pthread_mutex_lock(&inviteResponses_mtx);
             while (inviteResponses != missing)
                 pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
@@ -513,6 +512,8 @@ void *orgThreadFunction(void *ptr) {
     goForTrip();
 	comeBack();
     decideIfBeated();
+
+    randomRole();
     
     //currentRole = UNKNOWN;
     
@@ -522,7 +523,6 @@ void *orgThreadFunction(void *ptr) {
 
 
 void randomRole() {
-
     Role prevRole = currentRole;
     int czy_organizator = rand() % 100;
     if (czy_organizator < ORG_PROBABILITY)
@@ -545,9 +545,16 @@ void randomRole() {
         }
     }
 
-    if (currentRole == ORG)
+    if (currentRole == ORG && prevRole != ORG) {
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
-
+    }
+    if (prevRole == ORG && currentRole == TUR) {
+        pthread_join(sender_th, NULL);
+    }
+    if (prevRole == ORG && currentRole == ORG) {
+        pthread_join(sender_th, NULL);
+        pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
+    }
     tab[tid].role = currentRole;
 
 }
@@ -583,7 +590,7 @@ void prepare() {
 
 int main(int argc, char **argv) {
 
-    signal(SIGINT, &interruptHandler); // to niestety nie działa :/
+    signal(SIGINT, &interruptHandler);  // to niestety nie działa :/
     
     if (argc == 4) {
         T = atoi(argv[1]);
