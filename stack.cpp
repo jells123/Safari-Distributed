@@ -27,7 +27,7 @@ packet *pop_pkt( MPI_Status *status )
         *status= stack->status;
         free(stack);
         stack = prev;
-	pthread_mutex_unlock(&stack_mtx);
+	   pthread_mutex_unlock(&stack_mtx);
         return tmp;
     }
 }
