@@ -1,5 +1,5 @@
 #include "handlers.h"
-//#include "turysta.cpp"
+#include "turysta.h"
 
 std::vector<messageHandler> handlers;
 
@@ -162,13 +162,17 @@ void guide_reqHandler(packet *pkt, int src) {
 
 
 void guide_respHandler(packet *pkt, int src) {
-    pthread_mutex_lock(&permission_mtx);
-    permissions++;
-    if (permissions >= (MAX_ORGS - P) || FORCE_END == 1) {
-    	pthread_cond_signal(&permission_cond);
+    if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
+        pthread_mutex_lock(&permission_mtx);
+        permissions++;
+        if (permissions >= (MAX_ORGS - P) || FORCE_END == 1) {
+        	pthread_cond_signal(&permission_cond);
+        }
+        println("Got permission from [%d]\n", src);
+        pthread_mutex_unlock(&permission_mtx);
+    } else {
+        println("Response out of date, timestamp: %d, request timestamp: \n", pkt->timestamp, lastReqTimestamp);
     }
-    println("Got permission from [%d]\n", src);
-    pthread_mutex_unlock(&permission_mtx);
 }
 
 

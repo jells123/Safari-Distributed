@@ -21,6 +21,7 @@ int GUIDE_BEATED_PROBABILITY = 10;
 int BEATED_PROBABILITY = 30;
 int TIME_BEATED = 10;
 int GUIDE_TIME_BEATED = 5;
+int lastReqTimestamp;
 
 volatile sig_atomic_t FORCE_END = 0;
 
@@ -138,6 +139,7 @@ void reserveGuide() {
     pthread_mutex_lock(&timestamp_mtx);
     packet msg = { ++timestamp, GUIDE_REQ, 0 };
     orgInfo myInfo = { timestamp, tid };
+    lastReqTimestamp = timestamp;
 
     pthread_mutex_lock(&queue_mtx);
     queue.push_back(myInfo);
@@ -592,14 +594,16 @@ int main(int argc, char **argv) {
 
     signal(SIGINT, &interruptHandler);  // to niestety nie działa :/
     
-    if (argc == 4) {
-        T = atoi(argv[1]);
-        G = atoi(argv[2]);
-        P = atoi(argv[3]);
+    if (argc == 3) {
+        G = atoi(argv[1]);
+        P = atoi(argv[2]);
     }
+    
+    init(&argc, &argv);
+    T = size;
+
     MAX_ORGS = T / G;
 
-    init(&argc, &argv);
     srand(time(NULL) + tid);
     prepare();
 
