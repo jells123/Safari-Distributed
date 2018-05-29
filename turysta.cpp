@@ -25,12 +25,15 @@ int lastReqTimestamp;
 
 volatile sig_atomic_t FORCE_END = 0;
 
+bool beated = false;
+
 pthread_mutex_t tab_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t inviteResponses_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t myGroup_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t timestamp_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t queue_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t permission_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t beated_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t inviteResponses_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t permission_cond = PTHREAD_COND_INITIALIZER;
@@ -88,23 +91,27 @@ void *receiveMessages(void *ptr) {
     packet pkt;
     while ( FORCE_END == 0 ) {
 
-        if (currentRole == UNKNOWN) {
+        if (currentRole == UNKNOWN && !beated) {
             randomRole();
         }
+        else {
+            println("Waiting for a message\n");
+            MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            //println("Got sth (msg)\n");
 
-        MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            pthread_mutex_lock(&timestamp_mtx);
+            timestamp++;
+            timestamp = max(timestamp, pkt.timestamp);
+            pthread_mutex_unlock(&timestamp_mtx);
 
-        pthread_mutex_lock(&timestamp_mtx);
-        timestamp++;
-        timestamp = max(timestamp, pkt.timestamp);
-        pthread_mutex_unlock(&timestamp_mtx);
-
-        for (size_t i = 0; i < handlers.size(); i++) {
-            if (handlers[i].msgType == pkt.type) {
-                pthread_mutex_lock(&tab_mtx);
-                handlers[i].handler( &pkt, status.MPI_SOURCE );
-                pthread_mutex_unlock(&tab_mtx);
+            for (size_t i = 0; i < handlers.size(); i++) {
+                if (handlers[i].msgType == pkt.type) {
+                    pthread_mutex_lock(&tab_mtx);
+                    handlers[i].handler( &pkt, status.MPI_SOURCE );
+                    pthread_mutex_unlock(&tab_mtx);
+                }
             }
+            //println("Processed a msg\n");
         }
         /*
         packet *newpkt = (packet*) malloc(sizeof(packet));
@@ -129,7 +136,7 @@ void deleteFromQueue(int id) {
         }
     }
     if (!queue.empty())
-        println("%d wasn't in my queue\n", id);         // moze sie zdarzyc ze nie bedzie jesli nie wyslal do nas req 
+        println("%d wasn't in my queue\n", id);         // moze sie zdarzyc ze nie bedzie jesli nie wyslal do nas req
     pthread_mutex_unlock(&queue_mtx);                   // (inne mu wystarczyly do zarezerwowania przewodnika), wiec to nie blad jak sie pojawi to czasem chyba ;)
 }
 
@@ -208,6 +215,7 @@ void *waitForTripEnd(void *ptr) {
 void *gotBeated(void *ptr) {
     int czy_pobity = rand() % 100;
     if (czy_pobity < BEATED_PROBABILITY) {
+        beated = true;
         println("I got beated! Waiting for being healed.\n");
         sleep(TIME_BEATED);
     }
@@ -219,6 +227,7 @@ void *gotBeated(void *ptr) {
 void decideIfBeated() {
     pthread_create( &beated_th, NULL, gotBeated, 0);
     pthread_join(beated_th, NULL);
+    beated = false;
 }
 
 
@@ -241,6 +250,9 @@ int tabSummary() {
                     participants++;
             }
             tab[i].value = G - participants - 1;
+            if (tab[i].value < 0) {
+                println("Uh oh, my group is bigger than it should?\n");
+            }
         }
     }
     return countOrgs;
@@ -273,13 +285,13 @@ void comeBack() {
             j = i - 1;
             while ( j >= 0 &&
                 ((timePom < orgSorted[j].timestamp)
-                    || (timePom == orgSorted[j].timestamp 
+                    || (timePom == orgSorted[j].timestamp
                         && tidPom < orgSorted[j].tid))) {
 
                     orgSorted[j+1].timestamp = orgSorted[j].timestamp;
                     orgSorted[j+1].tid = orgSorted[j].tid;
                     j--;
-                
+
             }
             orgSorted[j+1].timestamp = timePom;
             orgSorted[j+1].tid = tidPom;
@@ -321,7 +333,7 @@ void orgsDeadlockProcess() {
     int countOrgs = tabSummary();
     missing = 0;
     for (int i = 0; i < T; i++) {
-        if (tab[i].role == UNKNOWN) {
+        if (tab[i].role == UNKNOWN || tab[i].role == BEATED) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
             println("%d invited again... \n", i);
             missing++;
@@ -333,7 +345,7 @@ void orgsDeadlockProcess() {
     while (inviteResponses != missing)
         pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
     pthread_mutex_unlock(&inviteResponses_mtx);
-    
+
     println("[deadlock] Proceeding to sort.\n");
 
     pthread_mutex_lock(&tab_mtx);
@@ -354,7 +366,7 @@ void orgsDeadlockProcess() {
         idx = indices[i];
 
         j = i-1;
-        while (j >= 0 && 
+        while (j >= 0 &&
                     ( (role == ORG && procSorted[j].role != ORG)
                     || (role == ORG && procSorted[j].role == ORG && val < procSorted[j].value)
                     || (role == ORG && procSorted[j].role == ORG && val == procSorted[j].value && idx < indices[j] )
@@ -367,7 +379,7 @@ void orgsDeadlockProcess() {
         }
         procSorted[j+1].role = role;
         procSorted[j+1].value = val;
-        indices[j+1] = idx; 
+        indices[j+1] = idx;
     }
 
     for (i = 0; i < T; i++) {
@@ -516,9 +528,9 @@ void *orgThreadFunction(void *ptr) {
     decideIfBeated();
 
     randomRole();
-    
+
     //currentRole = UNKNOWN;
-    
+    println("Escaping ORG thread...\n");
     return (void *)0;
 
 }
@@ -546,6 +558,9 @@ void randomRole() {
                     MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
         }
     }
+    else {
+        println("My role now is %s\n", rolesNames[currentRole]);
+    }
 
     if (currentRole == ORG && prevRole != ORG) {
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
@@ -557,6 +572,7 @@ void randomRole() {
         pthread_join(sender_th, NULL);
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
     }
+
     tab[tid].role = currentRole;
 
 }
@@ -587,18 +603,19 @@ void prepare() {
     addMessageHandler(GUIDE_RESP, guide_respHandler);
     addMessageHandler(TRIP_END, trip_endHandler);
     addMessageHandler(CHANGE_GROUP, change_groupHandler);
+    addMessageHandler(I_WAS_BEATED, i_was_beatedHandler);
 
 }
 
 int main(int argc, char **argv) {
 
     signal(SIGINT, &interruptHandler);  // to niestety nie działa :/
-    
+
     if (argc == 3) {
         G = atoi(argv[1]);
         P = atoi(argv[2]);
     }
-    
+
     init(&argc, &argv);
     T = size;
 

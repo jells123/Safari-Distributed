@@ -22,9 +22,10 @@
 using namespace std;
 
 enum Role {
-    UNKNOWN,
-    ORG, // organizator
-    TUR // turysta
+    BEATED = -1,
+    UNKNOWN = 0,
+    ORG = 1, // organizator
+    TUR = 2 // turysta
 };
 
 typedef struct processInfo {
@@ -42,7 +43,7 @@ extern MPI_Status status;
 extern int T, G, P, MAX_ORGS, lastReqTimestamp;
 extern int inviteResponses, missing, permissions;
 
-extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx;
+extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, beated_mtx;
 extern pthread_cond_t inviteResponses_cond, permission_cond;
 
 extern vector<processInfo> tab;
@@ -51,6 +52,8 @@ extern vector<int> reqPermissions, myGroup, invitations;
 
 extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, BEATED_PROBABILITY, TIME_BEATED, GUIDE_TIME_BEATED;
 extern volatile sig_atomic_t FORCE_END;
+
+extern bool beated;
 
 void *receiveMessages(void *ptr);
 void deleteFromQueue(int tid);

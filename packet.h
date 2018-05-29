@@ -10,13 +10,13 @@
 
 enum MsgType {
 
-    INVITE, // zaproszenie do grupy     
-    ACCEPT, // przyjęcie zaproszenia 
+    INVITE, // zaproszenie do grupy
+    ACCEPT, // przyjęcie zaproszenia
     REJECT_HASGROUP, // odmowa - mam już grupę
     REJECT_ISORG, // odmowa - jestem organizatorem
 
     NOT_ORG, // nie jestem organizatorem = szukam grupy
-    BEATED, // pobicie         
+    I_WAS_BEATED, // pobicie         
     CHANGE_GROUP, // rozwiązanie zakleszczenia - turysta zmienia grupę do której dołączył
     GUIDE_REQ, // request o przewodnika
     GUIDE_RESP, // zgoda na przydzielenie przewodnika

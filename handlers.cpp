@@ -19,7 +19,13 @@ void inviteHandler(packet *pkt, int src) {
     pthread_mutex_lock(&myGroup_mtx);
     timestamp++;
 
-    if (currentRole == TUR && myGroup.empty()) {
+    println("I got invitation from %d! <3\n", src);
+
+    if (beated) {
+        packet msg = { timestamp, I_WAS_BEATED, 0 };
+        MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+    }
+    else if (currentRole == TUR && myGroup.empty()) {
         myGroup.push_back(src);
         packet msg = { timestamp, ACCEPT, 0 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
@@ -106,6 +112,22 @@ void reject_hasgroupHandler(packet *pkt, int src) {
 
 }
 
+void i_was_beatedHandler(packet *pkt, int src) {
+    pthread_mutex_lock(&inviteResponses_mtx);
+    inviteResponses++;
+
+    tab[src].role = BEATED;
+    tab[src].value = -666;
+
+    println("%d was beated :ooo\n", src);
+
+    if (inviteResponses >= missing || FORCE_END == 1) {
+        pthread_cond_signal(&inviteResponses_cond);
+    }
+
+    pthread_mutex_unlock(&inviteResponses_mtx);
+}
+
 
 void acceptHandler(packet *pkt, int src) {
     pthread_mutex_lock(&inviteResponses_mtx);
@@ -146,7 +168,7 @@ void guide_reqHandler(packet *pkt, int src) {
             packet msg = { ++timestamp, GUIDE_RESP, 0 };
             pthread_mutex_unlock(&timestamp_mtx);
 
-            
+
             MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
             println("Ok, I let you [%d] reserve a guide\n", src);
 
@@ -171,7 +193,7 @@ void guide_respHandler(packet *pkt, int src) {
         println("Got permission from [%d]\n", src);
         pthread_mutex_unlock(&permission_mtx);
     } else {
-        println("Response out of date, timestamp: %d, request timestamp: \n", pkt->timestamp, lastReqTimestamp);
+        println("Response out of date, timestamp: %d, request timestamp: %d \n", pkt->timestamp, lastReqTimestamp);
     }
 }
 
