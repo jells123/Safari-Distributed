@@ -68,6 +68,9 @@ void prepare();
 void interruptHandler(int s);
 void clearResources();
 
+void decideIfBeated();
+void *gotBeated(void *ptr);
+
 int main(int argc, char * * argv);
 
 #endif

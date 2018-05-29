@@ -212,6 +212,7 @@ void trip_endHandler(packet *pkt, int src) {
 
     if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
+        decideIfBeated();
     }
 	//if(currentRole != TUR)
     deleteFromQueue(src);
