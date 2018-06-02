@@ -6,7 +6,6 @@
 
 using namespace std;
 
-
 int T = 10; // liczba turystow
 int G = 2; // rozmiar grupy
 int P = 3; // liczba przewodnikow
@@ -95,9 +94,9 @@ void *receiveMessages(void *ptr) {
             randomRole();
         }
         else {
-            println("Waiting for a message\n");
+            // println("Waiting for a message\n");
             MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            //println("Got sth (msg)\n");
+            // println("Msg %d from %d\n", pkt.type, status.MPI_SOURCE);
 
             pthread_mutex_lock(&timestamp_mtx);
             timestamp++;
@@ -198,16 +197,17 @@ void *waitForTripEnd(void *ptr) {
     timestamp++;
     packet msg = { timestamp, TRIP_END, -1 };
     for (int i = 0; i < size; i++)
-        if (i != tid)
-            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+        //if (i != tid)
+        MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
     pthread_mutex_unlock(&timestamp_mtx);
     println("TRIP END - everyone notified.\n");
 
-    int czy_pobity_guide = rand() % 100;
-    if (czy_pobity_guide < GUIDE_BEATED_PROBABILITY) {
-        println("Guide beated!\n");
-        sleep(TIME_BEATED);
-    }
+    // int czy_pobity_guide = rand() % 100;
+    // if (czy_pobity_guide < GUIDE_BEATED_PROBABILITY) {
+    //     println("Guide beated!\n");
+    //     sleep(TIME_BEATED);
+    // }
+
     return (void *)0;
 }
 
@@ -251,7 +251,7 @@ int tabSummary() {
             }
             tab[i].value = G - participants - 1;
             if (tab[i].value < 0) {
-                println("Uh oh, my group is bigger than it should?\n");
+                println("Uh oh, my group is bigger than it should? (value is %d, pid %d) \n", tab[i].value, i);
             }
         }
     }
@@ -320,13 +320,14 @@ void comeBack() {
 
 
 void orgsDeadlockProcess() {
+
     pthread_mutex_lock(&inviteResponses_mtx);
     inviteResponses = 0;
     pthread_mutex_unlock(&inviteResponses_mtx);
 
     pthread_mutex_lock(&timestamp_mtx);
     missing = G-1 - myGroup.size();
-    packet msg = { ++timestamp, INVITE, missing };
+    packet msg = { timestamp, INVITE, missing };
     pthread_mutex_unlock(&timestamp_mtx);
 
     pthread_mutex_lock(&tab_mtx);
@@ -346,7 +347,7 @@ void orgsDeadlockProcess() {
         pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
     pthread_mutex_unlock(&inviteResponses_mtx);
 
-    println("[deadlock] Proceeding to sort.\n");
+    // println("[deadlock] Proceeding to sort.\n");
 
     pthread_mutex_lock(&tab_mtx);
     int indices[T];
@@ -385,6 +386,7 @@ void orgsDeadlockProcess() {
     for (i = 0; i < T; i++) {
         println("%d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
     }
+
     // END OF INSERTION SORT
     println("[deadlock] Sorted tab.\n");
 
@@ -435,8 +437,8 @@ void orgsDeadlockProcess() {
             }
         }
 
-        for (i = 0; i < T; i++)
-            println("* %d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
+        // for (i = 0; i < T; i++)
+        //     println("* %d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
 
     }
 
@@ -454,6 +456,9 @@ void orgsDeadlockProcess() {
 
 
 void *orgThreadFunction(void *ptr) {
+    pthread_mutex_lock(&myGroup_mtx);
+    println("Starting role as an ORG :)\n");
+    
     tab[tid].role = ORG;
 
     invitations.clear();
@@ -462,10 +467,11 @@ void *orgThreadFunction(void *ptr) {
     size_t groupSize = G-1;
     size_t numberOfTurists = T-1;
 
-    while (myGroup.size() != groupSize) {
+    while (myGroup.size() != groupSize && currentRole == ORG) {
 
         if (FORCE_END) {
             clearResources();
+            pthread_mutex_unlock(&myGroup_mtx);
             return (void *)0;
         }
 
@@ -474,17 +480,23 @@ void *orgThreadFunction(void *ptr) {
             println("Oh no, deadlock occured.\n");
             orgsDeadlockProcess();
             invitations.clear();
+
+            pthread_mutex_unlock(&myGroup_mtx);
+
             if (currentRole == TUR) {
                 println("[deadlock solved] I'm not ORG anymore...\n");
                 return (void *)0;
             }
+
             println("[deadlock solved] My group is %d now.\n", (int) myGroup.size());
         }
 
         else {
+
             vector<int>::iterator it;
             int choice;
             missing = G-1 - myGroup.size();
+
 
             if (invitations.size() + missing > numberOfTurists) {
                 missing = T - invitations.size();
@@ -504,33 +516,42 @@ void *orgThreadFunction(void *ptr) {
 
             pthread_mutex_lock(&timestamp_mtx);
             packet msg = { ++timestamp, INVITE, missing };
-            pthread_mutex_unlock(&timestamp_mtx);
 
             for (int i = 0; i < missing; ++i) {
                 int idx = invitations.size() - 1 - i;
                 MPI_Send( &msg, 1, MPI_PAKIET_T, invitations[idx], MSG_TAG, MPI_COMM_WORLD);
                 println("%d invited :) \n", invitations[idx]);
             }
+            pthread_mutex_unlock(&timestamp_mtx);
+            pthread_mutex_unlock(&myGroup_mtx);
+
             pthread_mutex_lock(&inviteResponses_mtx);
             while (inviteResponses != missing)
                 pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
             pthread_mutex_unlock(&inviteResponses_mtx);
 
+            pthread_mutex_lock(&myGroup_mtx);
        }
 
     }
+    pthread_mutex_unlock(&myGroup_mtx);
     invitations.clear();
-    println("I've got a group!\n");
 
-    reserveGuide();
-    goForTrip();
-	comeBack();
-    decideIfBeated();
+    if (currentRole == ORG) {
+        println("I've got a group!\n");
+        waitForTripEnd(nullptr);
+    }
+    // currentRole = UNKNOWN;
 
-    randomRole();
+ //    reserveGuide();
+ //    goForTrip();
+	// comeBack();
+ //    decideIfBeated();
 
-    //currentRole = UNKNOWN;
-    println("Escaping ORG thread...\n");
+ //    randomRole();
+
+ //    //currentRole = UNKNOWN;
+ //    println("Escaping ORG thread...\n");
     return (void *)0;
 
 }

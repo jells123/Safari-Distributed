@@ -10,17 +10,17 @@
 
 enum MsgType {
 
-    INVITE, // zaproszenie do grupy
-    ACCEPT, // przyjęcie zaproszenia
-    REJECT_HASGROUP, // odmowa - mam już grupę
-    REJECT_ISORG, // odmowa - jestem organizatorem
+    INVITE = 0, // zaproszenie do grupy
+    ACCEPT = 1, // przyjęcie zaproszenia
+    REJECT_HASGROUP = 2, // odmowa - mam już grupę
+    REJECT_ISORG = 3, // odmowa - jestem organizatorem
 
-    NOT_ORG, // nie jestem organizatorem = szukam grupy
-    I_WAS_BEATED, // pobicie         
-    CHANGE_GROUP, // rozwiązanie zakleszczenia - turysta zmienia grupę do której dołączył
-    GUIDE_REQ, // request o przewodnika
-    GUIDE_RESP, // zgoda na przydzielenie przewodnika
-    TRIP_END // koniec wycieczki -> zwolnienie zasobu przewodnika
+    NOT_ORG = 4, // nie jestem organizatorem = szukam grupy
+    I_WAS_BEATED = 5, // pobicie         
+    CHANGE_GROUP = 6, // rozwiązanie zakleszczenia - turysta zmienia grupę do której dołączył
+    GUIDE_REQ = 7, // request o przewodnika
+    GUIDE_RESP = 8, // zgoda na przydzielenie przewodnika
+    TRIP_END = 9 // koniec wycieczki -> zwolnienie zasobu przewodnika
 
 };
 
