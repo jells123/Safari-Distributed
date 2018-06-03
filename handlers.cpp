@@ -26,26 +26,26 @@ void inviteHandler(packet *pkt, int src) {
     if (beated) {
         packet msg = { timestamp, I_WAS_BEATED, 0 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Responding with I was beated to %d\n", src);
+    	println("Responding with I was beated to %d\n", src);
     }
     else if (currentRole == TUR && myGroup.empty()) {
         myGroup.push_back(src);
         packet msg = { timestamp, ACCEPT, 0 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Sending ACCEPT for %d\n", src);
+    	println("Sending ACCEPT for %d\n", src);
     }
     else if (currentRole == TUR && !myGroup.empty()) {
         packet msg = { timestamp, REJECT_HASGROUP, myGroup[0] };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Sending 'i have a group' to %d\n", src);
+    	println("Sending 'i have a group (%d) ' to %d\n", myGroup[0], src);
     }
     else if (currentRole == ORG) {
         packet msg = { timestamp, REJECT_ISORG, (int) (G - myGroup.size() - 1) };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Sending 'i am org too' to %d\n", src);
+    	println("Sending 'i am org too' to %d\n", src);
     }
     else {
-    	// println("InviteHandler - responded with nothing.\n");
+    	println("InviteHandler - responded with nothing?\n");
     }
 
     tab[src].role = ORG;
@@ -63,7 +63,7 @@ void change_groupHandler(packet *pkt, int src) {
 	pthread_mutex_lock(&myGroup_mtx);
 
 	if (currentRole == ORG) {
-		println("I was org but I have to cancel it.\n");
+		println("I was org but I have to cancel it. (joining %d)\n", pkt->info_val);
 		myGroup.clear();
 	}
 
@@ -242,7 +242,6 @@ void guide_respHandler(packet *pkt, int src) {
 
 
 void trip_endHandler(packet *pkt, int src) {
-    println("End of %ds trip notification. \n", src);
 
     pthread_mutex_lock(&myGroup_mtx);
 
@@ -256,15 +255,17 @@ void trip_endHandler(packet *pkt, int src) {
 
     if (src == tid) {
     	currentRole = UNKNOWN;
+    	println("End of my own trip notification. \n");	
     }
-    else {
-
-	    if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
-	        myGroup.clear();
-	    }
-    }
+    else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
+        myGroup.clear();
+        currentRole = UNKNOWN;
+    	println("End of %ds trip notification, which I belong to (TUR) \n", src);	
+	}
+	else {
+    	println("End of %ds trip notification. \n", src);	
+	}
 
     deleteFromQueue(src);
-
     pthread_mutex_unlock(&myGroup_mtx);
 }

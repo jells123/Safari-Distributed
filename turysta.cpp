@@ -6,7 +6,7 @@
 
 using namespace std;
 
-int T = 10; // liczba turystow
+int T = 6; // liczba turystow
 int G = 2; // rozmiar grupy
 int P = 3; // liczba przewodnikow
 
@@ -99,7 +99,7 @@ void *receiveMessages(void *ptr) {
             // println("Msg %d from %d\n", pkt.type, status.MPI_SOURCE);
 
             pthread_mutex_lock(&timestamp_mtx);
-            timestamp++;
+            // timestamp++;
             timestamp = max(timestamp, pkt.timestamp);
             pthread_mutex_unlock(&timestamp_mtx);
 
@@ -324,32 +324,37 @@ void orgsDeadlockProcess() {
     pthread_mutex_lock(&inviteResponses_mtx);
     inviteResponses = 0;
     pthread_mutex_unlock(&inviteResponses_mtx);
+    println("invite responses mtx passed\n");
 
     pthread_mutex_lock(&timestamp_mtx);
     missing = G-1 - myGroup.size();
     packet msg = { timestamp, INVITE, missing };
     pthread_mutex_unlock(&timestamp_mtx);
+    println("timestamp mtx passed\n");
 
-    pthread_mutex_lock(&tab_mtx);
+    // pthread_mutex_lock(&tab_mtx);
     int countOrgs = tabSummary();
     missing = 0;
     for (int i = 0; i < T; i++) {
         if (tab[i].role == UNKNOWN || tab[i].role == BEATED) {
-            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-            println("%d invited again... \n", i);
-            missing++;
+            if (i != tid) {
+                MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+                println("%d invited again... \n", i);
+                missing++;
+            }
         }
     }
-    pthread_mutex_unlock(&tab_mtx);
+    // pthread_mutex_unlock(&tab_mtx);
+    println("tab mtx passed\n");
 
     pthread_mutex_lock(&inviteResponses_mtx);
-    while (inviteResponses != missing)
+    while (inviteResponses < missing)
         pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
     pthread_mutex_unlock(&inviteResponses_mtx);
 
-    // println("[deadlock] Proceeding to sort.\n");
+    println("[deadlock] Info gathered, proceeding to sort.\n");
 
-    pthread_mutex_lock(&tab_mtx);
+    // pthread_mutex_lock(&tab_mtx);
     int indices[T];
     processInfo procSorted[T];
     for (int i = 0; i < T; i ++) {
@@ -437,8 +442,8 @@ void orgsDeadlockProcess() {
             }
         }
 
-        // for (i = 0; i < T; i++)
-        //     println("* %d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
+        for (i = 0; i < T; i++)
+            println("* %d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
 
     }
 
@@ -451,7 +456,7 @@ void orgsDeadlockProcess() {
         }
     }
 
-    pthread_mutex_unlock(&tab_mtx);
+    // pthread_mutex_unlock(&tab_mtx);
 }
 
 
@@ -559,6 +564,11 @@ void *orgThreadFunction(void *ptr) {
 
 void randomRole() {
     Role prevRole = currentRole;
+    myGroup.clear();
+
+    tab[tid].role = currentRole;
+    tab[tid].value = -1;
+
     int czy_organizator = rand() % 100;
     if (czy_organizator < ORG_PROBABILITY)
         currentRole = ORG;
@@ -593,8 +603,6 @@ void randomRole() {
         pthread_join(sender_th, NULL);
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
     }
-
-    tab[tid].role = currentRole;
 
 }
 
@@ -645,6 +653,7 @@ int main(int argc, char **argv) {
     srand(time(NULL) + tid);
     prepare();
 
+    cout << T << " " << G << " " << P << endl;
     pthread_create( &receiver_th, NULL, receiveMessages, 0);
     pthread_join( receiver_th, NULL );
 
