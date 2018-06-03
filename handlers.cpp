@@ -255,7 +255,7 @@ void guide_respHandler(packet *pkt, int src) {
 void trip_endHandler(packet *pkt, int src) {
 
 	decideIfBeated();
-	
+
 	for (int i = 0; i < size; i++) {
 		if ( (tab[i].role == TUR && tab[i].value == src)
 				|| (i == src) ) {
@@ -277,6 +277,7 @@ void trip_endHandler(packet *pkt, int src) {
     	println("End of %ds trip notification. \n", src);	
 	}
 
+	randomRole();
 
     // deleteFromQueue(src);
 }

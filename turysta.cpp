@@ -94,11 +94,11 @@ void *receiveMessages(void *ptr) {
     packet pkt;
     while ( FORCE_END == 0 ) {
 
-        pthread_mutex_lock(&state_mtx);
-        if (currentRole == UNKNOWN && !beated) {
-            randomRole();
-        }
-        pthread_mutex_unlock(&state_mtx);
+        // pthread_mutex_lock(&state_mtx);
+        // if (currentRole == UNKNOWN && !beated) {
+        //     randomRole();
+        // }
+        // pthread_mutex_unlock(&state_mtx);
 
         // else {
             MPI_Recv( &pkt, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -515,6 +515,10 @@ void orgsDeadlockProcess() {
 
 void *orgThreadFunction(void *ptr) {
     println("Starting role as an ORG :)\n");
+
+    if (beated)
+        pthread_join(beated_th, NULL);
+    // while (beated) ;
 
     size_t groupSize = G-1;
     size_t numberOfTurists = T-1;
