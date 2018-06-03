@@ -191,6 +191,12 @@ void *waitForTripEnd(void *ptr) {
     println("Trip started!\n");
     sleep(trip_time);
 
+    int czy_pobity_guide = rand() % 100;
+    if (czy_pobity_guide < GUIDE_BEATED_PROBABILITY) {
+        println("Guide beated!\n");
+        sleep(TIME_BEATED);
+    }
+
     pthread_mutex_lock(&state_mtx);
     timestamp++;
     packet msg = { timestamp, TRIP_END, -1 };
@@ -199,12 +205,6 @@ void *waitForTripEnd(void *ptr) {
         MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
     println("TRIP END - everyone notified.\n");
     pthread_mutex_unlock(&state_mtx);
-
-    // int czy_pobity_guide = rand() % 100;
-    // if (czy_pobity_guide < GUIDE_BEATED_PROBABILITY) {
-    //     println("Guide beated!\n");
-    //     sleep(TIME_BEATED);
-    // }
 
     return (void *)0;
 }
@@ -599,21 +599,11 @@ void *orgThreadFunction(void *ptr) {
     pthread_mutex_unlock(&state_mtx);
 
     if (currentRole == ORG) {
+        reserveGuide();
         println("I've got a group!\n");
-        waitForTripEnd(nullptr);
+        waitForTripEnd(NULL);
+        comeBack();
     }
-
- //    currentRole = UNKNOWN;
-
- //    reserveGuide();
- //    goForTrip();
- //    comeBack();
- //    decideIfBeated();
-
- //    randomRole();
-
- //    //currentRole = UNKNOWN;
- //    println("Escaping ORG thread...\n");
 
     return (void *)0;
 
@@ -653,17 +643,6 @@ void randomRole() {
 
     if (currentRole == ORG)
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
-
-    // if (currentRole == ORG && prevRole != ORG) {
-    //     pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
-    // }
-    // if (prevRole == ORG && currentRole == TUR) {
-    //     pthread_join(sender_th, NULL);
-    // }
-    // if (prevRole == ORG && currentRole == ORG) {
-    //     pthread_join(sender_th, NULL);
-    //     pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
-    // }
 
 }
 
@@ -714,7 +693,7 @@ int main(int argc, char **argv) {
     srand(time(NULL) + tid);
     prepare();
 
-    cout << T << " " << G << " " << P << endl;
+    //cout << T << " " << G << " " << P << endl;
     pthread_create( &receiver_th, NULL, receiveMessages, 0);
     pthread_join( receiver_th, NULL );
 

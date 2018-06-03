@@ -254,30 +254,33 @@ void guide_respHandler(packet *pkt, int src) {
 
 void trip_endHandler(packet *pkt, int src) {
 
-	decideIfBeated();
 
-	for (int i = 0; i < size; i++) {
-		if ( (tab[i].role == TUR && tab[i].value == src)
-				|| (i == src) ) {
-			tab[i].role = UNKNOWN;
-			tab[i].value = -1;
-		}
-	}
+    for (int i = 0; i < size; i++) {
+        if ( (tab[i].role == TUR && tab[i].value == src)
+                || (i == src) ) {
+            tab[i].role = UNKNOWN;
+            tab[i].value = -1;
+        }
+    }
 
+    if(currentRole == ORG && src != tid)
+        deleteFromQueue(src);
     if (src == tid) {
-    	currentRole = UNKNOWN;
-    	println("End of my own trip notification. \n");	
+        currentRole = UNKNOWN;
+        println("End of my own trip notification. \n"); 
+        decideIfBeated();
+        randomRole();
     }
     else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
         currentRole = UNKNOWN;
-    	println("End of %ds trip notification, which I belong to (TUR) \n", src);	
-	}
-	else {
-    	println("End of %ds trip notification. \n", src);	
-	}
+        println("End of %ds trip notification, which I belong to (TUR) \n", src);   
+        decideIfBeated();
+        randomRole();
+    }
+    else {
+        println("End of %ds trip notification. \n", src);   
+    }
 
-	randomRole();
 
-    // deleteFromQueue(src);
 }
