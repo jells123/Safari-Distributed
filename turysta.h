@@ -22,10 +22,10 @@
 using namespace std;
 
 enum Role {
-    BEATED = -1,
     UNKNOWN = 0,
     ORG = 1, // organizator
-    TUR = 2 // turysta
+    TUR = 2, // turysta
+    BEATED = 3
 };
 
 typedef struct processInfo {
@@ -67,6 +67,9 @@ void randomRole();
 void prepare();
 void interruptHandler(int s);
 void clearResources();
+
+void *gotBeated(void *ptr);
+void decideIfBeated();
 
 int main(int argc, char * * argv);
 
