@@ -86,6 +86,8 @@ void *receiveMessages(void *ptr) {
 
     packet pkt;
     while ( FORCE_END == 0 ) {
+        //sleep(1);
+        //println("LOL\n");
 
         if (currentRole == UNKNOWN) {
             randomRole();
@@ -121,20 +123,20 @@ void deleteFromQueue(int id) {
     pthread_mutex_lock(&queue_mtx);
     for(size_t i = 0; i < queue.size(); i++) {
         if(queue[i].tid == id) {
-            println("Removing %d from queue\n", id);
+            //println("Removing %d from queue\n", id);
             queue.erase(queue.begin() + i);
             pthread_mutex_unlock(&queue_mtx);
             return;
         }
     }
     if (!queue.empty())
-        println("%d wasn't in my queue\n", id);         // moze sie zdarzyc ze nie bedzie jesli nie wyslal do nas req 
+        //println("%d wasn't in my queue\n", id);         // moze sie zdarzyc ze nie bedzie jesli nie wyslal do nas req 
     pthread_mutex_unlock(&queue_mtx);                   // (inne mu wystarczyly do zarezerwowania przewodnika), wiec to nie blad jak sie pojawi to czasem chyba ;)
 }
 
 
 void reserveGuide() {
-    println("GIMME GUIDE!\n");
+    //println("GIMME GUIDE!\n");
     pthread_mutex_lock(&timestamp_mtx);
     packet msg = { ++timestamp, GUIDE_REQ, 0 };
     orgInfo myInfo = { timestamp, tid };
@@ -143,12 +145,14 @@ void reserveGuide() {
     queue.push_back(myInfo);
     pthread_mutex_unlock(&queue_mtx);
 
+    pthread_mutex_lock(&permission_mtx);
     permissions = 0;
+    pthread_mutex_unlock(&permission_mtx);
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-            println("(1) Sending req to [%d]", i);
+            //println("(1) Sending req to [%d]", i);
             reqPermissions.push_back(i);
         }
         if(permissions >= (MAX_ORGS - P))
@@ -163,7 +167,7 @@ void reserveGuide() {
             if(i != tid && find(reqPermissions.begin(), reqPermissions.end(), i) == reqPermissions.end()) {
                 reqPermissions.push_back(i);
                 MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-                println("(2) Sending req to [%d]", i);
+                //println("(2) Sending req to [%d]", i);
             }
             i++;
             if(permissions >= (MAX_ORGS - P))
@@ -197,7 +201,7 @@ void *waitForTripEnd(void *ptr) {
     int czy_pobity_guide = rand() % 100;
     if (czy_pobity_guide < GUIDE_BEATED_PROBABILITY) {
         println("Guide beated!\n");
-        sleep(TIME_BEATED);
+        sleep(GUIDE_TIME_BEATED);
     }
     return (void *)0;
 }
@@ -224,7 +228,7 @@ void goForTrip() {
     println("Going on a trip! :)\n");
     pthread_create( &trip_th, NULL, waitForTripEnd, 0);
     pthread_join(trip_th, NULL);
-    println("I'm back from a trip :d.\n");
+    //println("I'm back from a trip :d.\n");
 }
 
 
@@ -284,10 +288,10 @@ void comeBack() {
         }
 
         for (i = 0; i < queue.size(); i++) {
-            println("%d: %d\n", orgSorted[i].tid, orgSorted[i].timestamp);
+            //println("%d: %d\n", orgSorted[i].tid, orgSorted[i].timestamp);
         }
 
-        println("[comeBack] Nailed it!\n");
+        //println("[comeBack] Nailed it!\n");
 
         pthread_mutex_lock(&timestamp_mtx);
         packet msg = { ++timestamp, GUIDE_RESP, 0 };
@@ -369,7 +373,7 @@ void orgsDeadlockProcess() {
     }
 
     for (i = 0; i < T; i++) {
-        println("%d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
+        //println("%d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
     }
     // END OF INSERTION SORT
     println("[deadlock] Sorted tab.\n");
@@ -508,10 +512,11 @@ void *orgThreadFunction(void *ptr) {
     invitations.clear();
     println("I've got a group!\n");
 
-    reserveGuide();
-    goForTrip();
-	comeBack();
-    decideIfBeated();
+    //reserveGuide();
+    //goForTrip();
+	//comeBack();
+    myGroup.clear();
+    //decideIfBeated();
 
     randomRole();
     
@@ -547,6 +552,7 @@ void randomRole() {
 
     if (currentRole == ORG && prevRole != ORG) {
         pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
+        //pthread_join(sender_th, NULL);
     }
     if (prevRole == ORG && currentRole == TUR) {
         pthread_join(sender_th, NULL);

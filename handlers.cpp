@@ -162,18 +162,20 @@ void guide_reqHandler(packet *pkt, int src) {
 
 
 void guide_respHandler(packet *pkt, int src) {
-    pthread_mutex_lock(&permission_mtx);
-    permissions++;
-    if (permissions >= (MAX_ORGS - P) || FORCE_END == 1) {
-    	pthread_cond_signal(&permission_cond);
+    if(currentRole == ORG) {
+        pthread_mutex_lock(&permission_mtx);
+        permissions++;
+        if (permissions >= (MAX_ORGS - P) || FORCE_END == 1) {
+        	pthread_cond_signal(&permission_cond);
+        }
+        println("Got permission from [%d]\n", src);
+        pthread_mutex_unlock(&permission_mtx);
     }
-    println("Got permission from [%d]\n", src);
-    pthread_mutex_unlock(&permission_mtx);
 }
 
 
 void trip_endHandler(packet *pkt, int src) {
-    println("End of %ds trip notification. \n", src);
+    //println("End of %ds trip notification. \n", src);
 	tab[src].role = UNKNOWN;
 	tab[src].value = -1;
 
