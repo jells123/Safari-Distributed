@@ -7,8 +7,8 @@
 using namespace std;
 
 
-int T = 10; // liczba turystow
-int G = 2; // rozmiar grupy
+int T = 20; // liczba turystow
+int G = 4; // rozmiar grupy
 int P = 3; // liczba przewodnikow
 
 int MAX_ORGS;
@@ -16,7 +16,7 @@ int MAX_ORGS;
 int ROOT = 0;
 int MSG_TAG = 100;
 
-int ORG_PROBABILITY = 75;
+int ORG_PROBABILITY = 15;
 int GUIDE_BEATED_PROBABILITY = 10;
 int BEATED_PROBABILITY = 30;
 int TIME_BEATED = 10;
@@ -86,6 +86,8 @@ void *receiveMessages(void *ptr) {
 
     packet pkt;
     while ( FORCE_END == 0 ) {
+
+        sleep(1);
 
         if (currentRole == UNKNOWN) {
             randomRole();

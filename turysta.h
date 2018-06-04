@@ -64,6 +64,11 @@ void randomRole();
 void prepare();
 void interruptHandler(int s);
 void clearResources();
+void reserveGuide();
+void *waitForTripEnd(void *ptr);
+void *gotBeated(void *ptr);
+void decideIfBeated();
+void goForTrip();
 
 int main(int argc, char * * argv);
 
