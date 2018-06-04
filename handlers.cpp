@@ -308,10 +308,11 @@ void guide_respHandler(packet *pkt, int src) {
 
         if (permissions >= neededPermissions || FORCE_END == 1) {
             pthread_mutex_lock(&permission_mtx);
+            permissions = (MAX_ORGS - P);
             println("So I can come in!\n");
             pthread_cond_signal(&permission_cond);
+            permissions = neededPermissions;
             pthread_mutex_unlock(&permission_mtx);
-
         }
 
     } else {
