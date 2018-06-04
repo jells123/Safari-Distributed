@@ -2,7 +2,7 @@
 #include "turysta.h"
 
 std::vector<messageHandler> handlers;
-
+int notInterestedOgrs;
 
 void addMessageHandler(MsgType type, void (*handler)(packet*, int)) {
     messageHandler newHandler = {
@@ -119,7 +119,7 @@ void change_groupHandler(packet *pkt, int src) {
 
 void not_orgHandler(packet *pkt, int src) {
 
-    println("Oczymaem od [%d]\n", src);
+    //println("Oczymaem od [%d]\n", src);
 
 	if (tab[src].role == ORG) {
 		// jakiś organizator zrezygnował...
@@ -141,7 +141,7 @@ void not_orgHandler(packet *pkt, int src) {
 
     int maxOrgs = (T - countBeated()) / G;
 
-    println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
+    //println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
 
     if (currentRole == TUR
         && T - touristsCount < maxOrgs
@@ -258,9 +258,16 @@ void guide_reqHandler(packet *pkt, int src) {
 
         size_t groupSize = G-1;
 
-        if(myGroup.size() != groupSize || (myGroup.size() == groupSize
+        if(myGroup.size() != groupSize) {
+            pthread_mutex_lock(&timestamp_mtx);
+            packet msg = { ++timestamp, GUIDE_RESP, -1 };
+            pthread_mutex_unlock(&timestamp_mtx);
+
+            MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+            println("I'm not interested, [%d] sry\n", src);
+        } else if(myGroup.size() == groupSize                  
             && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp
-                && src < tid)))) {
+                && src < tid))) {
 
             pthread_mutex_lock(&timestamp_mtx);
             packet msg = { ++timestamp, GUIDE_RESP, 0 };
@@ -276,19 +283,37 @@ void guide_reqHandler(packet *pkt, int src) {
         }
 
     } else {
-        println("I'm not an ogr anymore...\n");
+        println("I'm not an ogr...\n");
     }
 }
 
 void guide_respHandler(packet *pkt, int src) {
+
     if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
-        pthread_mutex_lock(&permission_mtx);
-        permissions++;
-        if (permissions >= (MAX_ORGS - P) || FORCE_END == 1) {
-        	pthread_cond_signal(&permission_cond);
+        int maxOrgs = (T - countBeated()) / G;
+
+        if(pkt->info_val == 0) {
+            pthread_mutex_lock(&permission_mtx);
+            permissions++;
+            println("Got permission from [%d]\n", src);
+            pthread_mutex_unlock(&permission_mtx);
+
+        } else if(pkt->info_val == -1) {
+            println("Got it but %d not interested...\n", src);
+            notInterestedOgrs++;
         }
-        println("Got permission from [%d]\n", src);
-        pthread_mutex_unlock(&permission_mtx);
+
+        int neededPermissions = maxOrgs - P - notInterestedOgrs;
+        println("Currently need: %d permissions to reserve guide\n", neededPermissions);
+
+        if (permissions >= neededPermissions || FORCE_END == 1) {
+            pthread_mutex_lock(&permission_mtx);
+            println("So I can come in!\n");
+            pthread_cond_signal(&permission_cond);
+            pthread_mutex_unlock(&permission_mtx);
+
+        }
+
     } else {
         println("Response out of date, timestamp: %d, request timestamp: %d \n", pkt->timestamp, lastReqTimestamp);
     }
@@ -315,7 +340,6 @@ void trip_endHandler(packet *pkt, int src) {
         currentRole = UNKNOWN;
         println("End of my own trip notification. \n"); 
         myGroup.clear();
-        packet msg = { ++timestamp, NOT_ORG, 0 };
         
         ORG_PROBABILITY = 5;
         randomRole();

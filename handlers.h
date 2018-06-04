@@ -17,6 +17,7 @@ struct messageHandler {
     void (*handler)(packet*, int);
 };
 extern std::vector<messageHandler> handlers;
+extern int notInterestedOgrs;
 
 void addMessageHandler(MsgType msgType, void (*handler)(packet*, int));
 

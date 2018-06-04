@@ -1,4 +1,5 @@
 #include "turysta.h"
+#include "handlers.h"
 
 // PYTANIA
 // T == size?
@@ -154,6 +155,7 @@ void reserveGuide() {
     pthread_mutex_unlock(&queue_mtx);
 
     permissions = 0;
+    notInterestedOgrs = 0;
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
@@ -227,17 +229,9 @@ void *waitForTripEnd(void *ptr) {
 
 
 void *gotBeated(void *ptr) {
-    int czy_pobity = rand() % 100;
 
-    if (czy_pobity < BEATED_PROBABILITY) {
+    sleep(TIME_BEATED);
 
-        pthread_mutex_lock(&state_mtx);
-        beated = true;
-        println("I got beated! Waiting for being healed.\n");
-        pthread_mutex_unlock(&state_mtx);
-
-        sleep(TIME_BEATED);
-    }
 
     println("Ok, I'm fine.\n");
 
@@ -250,7 +244,18 @@ void *gotBeated(void *ptr) {
 
 
 void decideIfBeated() {
-    pthread_create( &beated_th, NULL, gotBeated, 0);
+    int czy_pobity = rand() % 100;
+
+    if (czy_pobity < BEATED_PROBABILITY) {
+
+        beated = true;
+        //timestamp++;
+        println("I got beated! Waiting for being healed.\n");
+        pthread_create( &beated_th, NULL, gotBeated, 0);
+    } else {
+        beated = false;
+    }
+    
     // pthread_join(beated_th, NULL);
     // beated = false;
 }
@@ -520,7 +525,7 @@ void orgsDeadlockProcess() {
 
     // if (countOrgs > MAX_ORGS) {
     if (countOrgs > maxOrgs) {
-        println("wchodzę, zaraz zobaczę\n");
+        //println("wchodzę, zaraz zobaczę\n");
 
         // nadmiarowi organizatorzy rezygnują i mogą dołączać
         for (i = maxOrgs; i < T; i ++) {
@@ -627,11 +632,11 @@ void *orgThreadFunction(void *ptr) {
                 return (void *)0;
             }
 
-            if (myGroup.size() == G - 1)  {
+            if (myGroup.size() == groupSize)  {
                 println("[deadlock solved] My group is %d now.\n", (int) myGroup.size());
             }
             else {
-                println("[deadlock ERROR] LOL MY GROUP SIZE IS %d !@#$%\n", (int) myGroup.size());
+                println("[deadlock ERROR] LOL MY GROUP SIZE IS %d !@#$\n", (int) myGroup.size());
             }
             pthread_mutex_unlock(&state_mtx);
 

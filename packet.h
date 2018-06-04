@@ -22,7 +22,7 @@ enum MsgType {
     GUIDE_RESP = 8, // zgoda na przydzielenie przewodnika
     TRIP_END = 9 // koniec wycieczki -> zwolnienie zasobu przewodnika
 
-    ,OMG_DEADLOCK = 10
+    ,OMG_DEADLOCK = 10,
 };
 
 typedef struct {
