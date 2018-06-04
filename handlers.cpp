@@ -310,28 +310,24 @@ void trip_endHandler(packet *pkt, int src) {
         deleteFromQueue(src);
     
     if (src == tid) {
+        myGroup.clear();
         decideIfBeated();
-        currentRole = TUR;
+        currentRole = UNKNOWN;
         println("End of my own trip notification. \n"); 
         myGroup.clear();
         packet msg = { ++timestamp, NOT_ORG, 0 };
-        for (int i = 0; i < size; i++)
-            if (i != tid)
-                MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-        //randomRole();
-        println("Wrocile, jeste turysta\n");
+        
+        ORG_PROBABILITY = 5;
+        randomRole();
     }
     else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
-        //currentRole = UNKNOWN;
         decideIfBeated();
+        currentRole = UNKNOWN;
         println("End of %ds trip notification, which I belong to (TUR) \n", src);   
-        packet msg = { ++timestamp, NOT_ORG, 0 };
-        for (int i = 0; i < size; i++)
-            if (i != tid)
-                MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-		//randomRole();
-        println("Wrocile, jeste turysta\n");
+        
+        ORG_PROBABILITY = 5;
+        randomRole();
 	}
 	else {
     	println("End of %ds trip notification. \n", src);	
