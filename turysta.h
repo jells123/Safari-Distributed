@@ -13,6 +13,7 @@
 #include <set>
 #include <algorithm>
 #include <csignal>
+#include <unistd.h>
 
 #include "packet.h"
 #include "inits.h"
@@ -41,10 +42,10 @@ typedef struct orgInfo {
 extern Role currentRole;
 extern MPI_Status status;
 extern int T, G, P, MAX_ORGS, lastReqTimestamp;
-extern int inviteResponses, missing, permissions;
+extern int inviteResponses, missing, permissions, lonelyOrgs, deadlocks;
 
-extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, beated_mtx;
-extern pthread_cond_t inviteResponses_cond, permission_cond;
+extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, beated_mtx, state_mtx, deadlock_mtx;
+extern pthread_cond_t inviteResponses_cond, permission_cond, deadlock_cond;
 
 extern vector<processInfo> tab;
 extern vector<orgInfo> queue;
@@ -53,7 +54,7 @@ extern vector<int> reqPermissions, myGroup, invitations;
 extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, BEATED_PROBABILITY, TIME_BEATED, GUIDE_TIME_BEATED;
 extern volatile sig_atomic_t FORCE_END;
 
-extern bool beated;
+extern bool beated, deadlock_trouble;
 
 void *receiveMessages(void *ptr);
 void deleteFromQueue(int tid);

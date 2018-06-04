@@ -14,6 +14,30 @@ void addMessageHandler(MsgType type, void (*handler)(packet*, int)) {
     return;
 }
 
+void omg_deadlockHandler(packet *pkt, int src) {
+
+	if (currentRole == ORG) {
+		pthread_mutex_lock(&deadlock_mtx);
+
+	    deadlocks++;
+	    if (lonelyOrgs == 0)
+	    	lonelyOrgs = pkt->info_val;
+	    // println("Deadlock Message from %d, %d/%d\n", src, deadlocks, lonelyOrgs);
+
+	    if (deadlocks >= lonelyOrgs) {
+	        pthread_cond_signal(&deadlock_cond);
+	        deadlocks = 0;
+	        lonelyOrgs = 0;
+	    }
+
+	    pthread_mutex_unlock(&deadlock_mtx);
+	}
+	else {
+		println("LOL I'm not even an ORG. xd\n");
+	}
+
+}
+
 
 void inviteHandler(packet *pkt, int src) {
 	// println("invite handler\n");
@@ -22,26 +46,26 @@ void inviteHandler(packet *pkt, int src) {
         packet msg = { timestamp, I_WAS_BEATED, 0 };
         sleep(1);
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	println("Responding with I was beated to %d\n", src);
+    	// println("Responding with I was beated to %d\n", src);
     }
     else if (currentRole == TUR && myGroup.empty()) {
         myGroup.push_back(src);
         packet msg = { timestamp, ACCEPT, 0 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	println("Sending ACCEPT for %d\n", src);
+    	// println("Sending ACCEPT for %d\n", src);
     }
     else if (currentRole == TUR && !myGroup.empty()) {
         packet msg = { timestamp, REJECT_HASGROUP, myGroup[0] };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	println("Sending 'i have a group (%d) ' to %d\n", myGroup[0], src);
+    	// println("Sending 'i have a group (%d) ' to %d\n", myGroup[0], src);
     }
     else if (currentRole == ORG) {
         packet msg = { timestamp, REJECT_ISORG, (int) (G - myGroup.size() - 1) };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	println("Sending 'i am org too' to %d\n", src);
+    	// println("Sending 'i am org too' to %d\n", src);
     }
     else {
-    	println("InviteHandler - responded with nothing? Role %d\n", currentRole);
+    	// println("InviteHandler - responded with nothing? Role %d\n", currentRole);
     }
 
     tab[src].role = ORG;
@@ -56,9 +80,15 @@ void change_groupHandler(packet *pkt, int src) {
 	*/
 
 	if (currentRole == ORG) {
-		println("I was org but I have to cancel it. (joining %d)\n", pkt->info_val);
-		myGroup.clear();
+		println("I was org but I have to cancel it :< \n");
+
+		for (size_t i = 0; i < myGroup.size(); i++) {
+			if(tab[myGroup[i]].role != ORG)
+				tab[myGroup[i]].value = -1;
+		}
+
 	}
+	// else {
 
 	currentRole = TUR;
 
@@ -68,15 +98,21 @@ void change_groupHandler(packet *pkt, int src) {
     if (myGroup.size() > 0) {
     	if (myGroup[0] != pkt->info_val) {
 	        println("Group change! From %d to %d\n", myGroup[0], pkt->info_val);
-	        myGroup.clear();
+	        // myGroup.clear();
+    	}
+    	else {
+    		println("Group change - i'm already in that group...\n");
     	}
     } 
     else {
-    	// println("Got group change (from %d, change to %d) but I have no group?\n", src, pkt->info_val);
+    	println("Got group change (from %d, change to %d) but I have no group? [size is %d] \n", src, pkt->info_val, (int) myGroup.size());
     }
 
+	myGroup.clear();
     myGroup.push_back(pkt->info_val);
     tab[pkt->info_val].role = ORG;
+
+	// }
 	
 }
 
@@ -100,6 +136,7 @@ void not_orgHandler(packet *pkt, int src) {
         if (tab[i].role == TUR)
             touristsCount++;
     }
+
     if (currentRole == TUR
         && T - touristsCount < MAX_ORGS
         && MAX_ORGS - (T - touristsCount) >= tid
@@ -254,7 +291,6 @@ void guide_respHandler(packet *pkt, int src) {
 
 void trip_endHandler(packet *pkt, int src) {
 
-	decideIfBeated();
 
 	for (int i = 0; i < size; i++) {
 		if ( (tab[i].role == TUR && tab[i].value == src)
@@ -267,17 +303,28 @@ void trip_endHandler(packet *pkt, int src) {
     if (src == tid) {
     	currentRole = UNKNOWN;
     	println("End of my own trip notification. \n");	
+    	// packet msg = { ++timestamp, NOT_ORG, 0 };
+     //    for (int i = 0; i < size; i++)
+     //        if (i != tid)
+     //            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+		// decideIfBeated();
+		randomRole();
     }
     else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
         currentRole = UNKNOWN;
+        // packet msg = { ++timestamp, NOT_ORG, 0 };
+        // for (int i = 0; i < size; i++)
+        //     if (i != tid)
+        //         MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
     	println("End of %ds trip notification, which I belong to (TUR) \n", src);	
+		// decideIfBeated();
+		randomRole();
 	}
 	else {
     	println("End of %ds trip notification. \n", src);	
 	}
 
-	randomRole();
 
     // deleteFromQueue(src);
 }
