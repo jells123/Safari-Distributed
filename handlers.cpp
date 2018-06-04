@@ -119,6 +119,8 @@ void change_groupHandler(packet *pkt, int src) {
 
 void not_orgHandler(packet *pkt, int src) {
 
+    println("Oczymaem od [%d]\n", src);
+
 	if (tab[src].role == ORG) {
 		// jakiś organizator zrezygnował...
 		for (int i = 0; i < size; i++) {
@@ -137,9 +139,13 @@ void not_orgHandler(packet *pkt, int src) {
             touristsCount++;
     }
 
+    int maxOrgs = (T - countBeated()) / G;
+
+    println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
+
     if (currentRole == TUR
-        && T - touristsCount < MAX_ORGS
-        && MAX_ORGS - (T - touristsCount) >= tid
+        && T - touristsCount < maxOrgs
+        && maxOrgs - (T - touristsCount) >= tid
         && myGroup.empty() ) {
         currentRole = ORG;
         println("I became ORG! Because I could.\n");
@@ -300,30 +306,32 @@ void trip_endHandler(packet *pkt, int src) {
         }
     }
 
-    // if(currentRole == ORG && src != tid)
-    //     deleteFromQueue(src);
+    if(currentRole == ORG && src != tid)
+        deleteFromQueue(src);
     
     if (src == tid) {
-    	currentRole = UNKNOWN;
-    	println("End of my own trip notification. \n");	
-    	// packet msg = { ++timestamp, NOT_ORG, 0 };
-     //    for (int i = 0; i < size; i++)
-     //        if (i != tid)
-     //            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-		// decideIfBeated();
-		randomRole();
         decideIfBeated();
+        currentRole = TUR;
+        println("End of my own trip notification. \n"); 
+        myGroup.clear();
+        packet msg = { ++timestamp, NOT_ORG, 0 };
+        for (int i = 0; i < size; i++)
+            if (i != tid)
+                MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+        //randomRole();
+        println("Wrocile, jeste turysta\n");
     }
     else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
-        currentRole = UNKNOWN;
-        // packet msg = { ++timestamp, NOT_ORG, 0 };
-        // for (int i = 0; i < size; i++)
-        //     if (i != tid)
-        //         MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-    	println("End of %ds trip notification, which I belong to (TUR) \n", src);	
-		decideIfBeated();
-		randomRole();
+        //currentRole = UNKNOWN;
+        decideIfBeated();
+        println("End of %ds trip notification, which I belong to (TUR) \n", src);   
+        packet msg = { ++timestamp, NOT_ORG, 0 };
+        for (int i = 0; i < size; i++)
+            if (i != tid)
+                MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+		//randomRole();
+        println("Wrocile, jeste turysta\n");
 	}
 	else {
     	println("End of %ds trip notification. \n", src);	

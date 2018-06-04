@@ -71,6 +71,7 @@ void clearResources();
 
 void *gotBeated(void *ptr);
 void decideIfBeated();
+int countBeated();
 
 int main(int argc, char * * argv);
 
