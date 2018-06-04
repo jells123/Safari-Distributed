@@ -264,19 +264,20 @@ void trip_endHandler(packet *pkt, int src) {
 		}
 	}
 
+    if(currentRole == ORG)
+        deleteFromQueue(src);
     if (src == tid) {
-    	currentRole = UNKNOWN;
-    	println("End of my own trip notification. \n");	
+        currentRole = UNKNOWN;
+        println("End of my own trip notification. \n"); 
     }
     else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
         currentRole = UNKNOWN;
-    	println("End of %ds trip notification, which I belong to (TUR) \n", src);	
-	}
-	else {
-    	println("End of %ds trip notification. \n", src);	
-	}
+        println("End of %ds trip notification, which I belong to (TUR) \n", src);   
+    }
+    else {
+        println("End of %ds trip notification. \n", src);   
+    }
 
 
-    // deleteFromQueue(src);
 }

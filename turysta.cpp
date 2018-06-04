@@ -596,14 +596,12 @@ void *orgThreadFunction(void *ptr) {
 
     if (currentRole == ORG) {
         println("I've got a group!\n");
-        waitForTripEnd(nullptr);
+        reserveGuide();
+        waitForTripEnd(NULL);
+        comeBack();
     }
 
  //    currentRole = UNKNOWN;
-
- //    reserveGuide();
- //    goForTrip();
- //    comeBack();
  //    decideIfBeated();
 
  //    randomRole();
@@ -710,7 +708,6 @@ int main(int argc, char **argv) {
     srand(time(NULL) + tid);
     prepare();
 
-    cout << T << " " << G << " " << P << endl;
     pthread_create( &receiver_th, NULL, receiveMessages, 0);
     pthread_join( receiver_th, NULL );
 
