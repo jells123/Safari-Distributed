@@ -292,14 +292,17 @@ void guide_respHandler(packet *pkt, int src) {
 void trip_endHandler(packet *pkt, int src) {
 
 
-	for (int i = 0; i < size; i++) {
-		if ( (tab[i].role == TUR && tab[i].value == src)
-				|| (i == src) ) {
-			tab[i].role = UNKNOWN;
-			tab[i].value = -1;
-		}
-	}
+    for (int i = 0; i < size; i++) {
+        if ( (tab[i].role == TUR && tab[i].value == src)
+                || (i == src) ) {
+            tab[i].role = UNKNOWN;
+            tab[i].value = -1;
+        }
+    }
 
+    // if(currentRole == ORG && src != tid)
+    //     deleteFromQueue(src);
+    
     if (src == tid) {
     	currentRole = UNKNOWN;
     	println("End of my own trip notification. \n");	
@@ -309,6 +312,7 @@ void trip_endHandler(packet *pkt, int src) {
      //            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
 		// decideIfBeated();
 		randomRole();
+        decideIfBeated();
     }
     else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
         myGroup.clear();
@@ -318,13 +322,11 @@ void trip_endHandler(packet *pkt, int src) {
         //     if (i != tid)
         //         MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
     	println("End of %ds trip notification, which I belong to (TUR) \n", src);	
-		// decideIfBeated();
+		decideIfBeated();
 		randomRole();
 	}
 	else {
     	println("End of %ds trip notification. \n", src);	
 	}
 
-
-    // deleteFromQueue(src);
 }
