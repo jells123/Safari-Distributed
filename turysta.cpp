@@ -9,7 +9,7 @@ using namespace std;
 
 int T = 6; // liczba turystow
 int G = 2; // rozmiar grupy
-int P = 3; // liczba przewodnikow
+int P = 1; // liczba przewodnikow
 
 int MAX_ORGS;
 
@@ -156,6 +156,9 @@ void reserveGuide() {
 
     permissions = 0;
     notInterestedOgrs = 0;
+    int neededPermissions = 0;
+
+    int maxOrgs = (T - countBeated()) / G;
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
@@ -163,7 +166,9 @@ void reserveGuide() {
             println("(1) Sending req to [%d]", i);
             reqPermissions.push_back(i);
         }
-        if(permissions >= (MAX_ORGS - P))
+        neededPermissions = maxOrgs - P - notInterestedOgrs;
+
+        if(permissions >= neededPermissions)
             break;
     }
 
@@ -178,11 +183,13 @@ void reserveGuide() {
                 println("(2) Sending req to [%d]", i);
             }
             i++;
-            if(permissions >= (MAX_ORGS - P))
+            neededPermissions = maxOrgs - P - notInterestedOgrs;
+
+            if(permissions >= neededPermissions)
                 break;
         }
         pthread_mutex_unlock(&timestamp_mtx);
-        while (permissions < (MAX_ORGS - P))
+        while (permissions < ((T - countBeated()) / G) - P - notInterestedOgrs)
             pthread_cond_wait(&permission_cond, &permission_mtx);
     }
     else
@@ -255,7 +262,7 @@ void decideIfBeated() {
     } else {
         beated = false;
     }
-    
+
     // pthread_join(beated_th, NULL);
     // beated = false;
 }
@@ -379,16 +386,16 @@ void orgsDeadlockProcess() {
     // for (int i = 0; i < T; i++) {
     //     if (i != tid) {
     //         println("Checking %d [%s, val %d]...\n", i, rolesNames[tab[i].role], tab[i].value);
-    //         if (myTursLeft > 0 && 
+    //         if (myTursLeft > 0 &&
     //             (tab[i].role == UNKNOWN // || tab[i].role == BEATED
-    //             || (tab[i].role == TUR && tab[i].value == -1) )   
+    //             || (tab[i].role == TUR && tab[i].value == -1) )
     //             ) {
     //             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
     //             println("[unknown fix] %d invited again... \n", i);
     //             missing++;
     //             myTursLeft--;
     //         }
-    //         else 
+    //         else
     //             if (tab[i].role == BEATED) {
     //             // if (i != tid) {
     //                 MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
@@ -406,7 +413,7 @@ void orgsDeadlockProcess() {
     //                     missing++;
     //                 }
     //             }
-    //         }  
+    //         }
     //     }
     // }
     // // }
@@ -605,7 +612,7 @@ void *orgThreadFunction(void *ptr) {
     size_t numberOfTurists = T-1;
 
     pthread_mutex_lock(&state_mtx);
-    timestamp++; 
+    timestamp++;
 
     tab[tid].role = ORG;
     tab[tid].value = groupSize;
@@ -703,7 +710,7 @@ void *orgThreadFunction(void *ptr) {
 
 
 void randomRole() {
-    
+
     Role prevRole = currentRole;
 
     myGroup.clear();

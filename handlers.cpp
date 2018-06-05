@@ -103,7 +103,7 @@ void change_groupHandler(packet *pkt, int src) {
     	else {
     		println("Group change - i'm already in that group...\n");
     	}
-    } 
+    }
     else {
     	println("Got group change (from %d, change to %d) but I have no group? [size is %d] \n", src, pkt->info_val, (int) myGroup.size());
     }
@@ -113,7 +113,7 @@ void change_groupHandler(packet *pkt, int src) {
     tab[pkt->info_val].role = ORG;
 
 	// }
-	
+
 }
 
 
@@ -265,18 +265,21 @@ void guide_reqHandler(packet *pkt, int src) {
 
             MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
             println("I'm not interested, [%d] sry\n", src);
-        } else if(myGroup.size() == groupSize                  
+        } else if(myGroup.size() == groupSize
             && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp
                 && src < tid))) {
 
-            pthread_mutex_lock(&timestamp_mtx);
-            packet msg = { ++timestamp, GUIDE_RESP, 0 };
-            pthread_mutex_unlock(&timestamp_mtx);
+			if (queue.size() < P) {
+				pthread_mutex_lock(&timestamp_mtx);
+		        packet msg = { ++timestamp, GUIDE_RESP, 0 };
+		        pthread_mutex_unlock(&timestamp_mtx);
 
 
-            MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-            println("Ok, I let you [%d] reserve a guide\n", src);
+		        MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+		        println("Ok, I let you [%d] reserve a guide\n", src);
 
+			}	
+            
 
         } else {
             println("I won't let you [%d] reserve a guide! For now..\n", src);
@@ -334,14 +337,14 @@ void trip_endHandler(packet *pkt, int src) {
 
     if(currentRole == ORG && src != tid)
         deleteFromQueue(src);
-    
+
     if (src == tid) {
         myGroup.clear();
         decideIfBeated();
         currentRole = UNKNOWN;
-        println("End of my own trip notification. \n"); 
+        println("End of my own trip notification. \n");
         myGroup.clear();
-        
+
         ORG_PROBABILITY = 5;
         randomRole();
     }
@@ -349,13 +352,13 @@ void trip_endHandler(packet *pkt, int src) {
         myGroup.clear();
         decideIfBeated();
         currentRole = UNKNOWN;
-        println("End of %ds trip notification, which I belong to (TUR) \n", src);   
-        
+        println("End of %ds trip notification, which I belong to (TUR) \n", src);
+
         ORG_PROBABILITY = 5;
         randomRole();
 	}
 	else {
-    	println("End of %ds trip notification. \n", src);	
+    	println("End of %ds trip notification. \n", src);
 	}
 
 }
