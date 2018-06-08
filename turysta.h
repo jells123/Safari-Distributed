@@ -42,7 +42,7 @@ typedef struct orgInfo {
 extern Role currentRole;
 extern MPI_Status status;
 extern int T, G, P, MAX_ORGS, lastReqTimestamp;
-extern int inviteResponses, missing, permissions, lonelyOrgs, deadlocks;
+extern int inviteResponses, missing, permissions, lonelyOrgs, deadlocks, orgsNumber;
 
 extern pthread_mutex_t tab_mtx, inviteResponses_mtx, myGroup_mtx, timestamp_mtx, queue_mtx, permission_mtx, beated_mtx, state_mtx, deadlock_mtx;
 extern pthread_cond_t inviteResponses_cond, permission_cond, deadlock_cond;

@@ -95,6 +95,8 @@ void change_groupHandler(packet *pkt, int src) {
     tab[tid].role = TUR;
     tab[tid].value = pkt->info_val;
 
+    orgsNumber = countOgrs();
+
     if (myGroup.size() > 0) {
     	if (myGroup[0] != pkt->info_val) {
 	        println("Group change! From %d to %d\n", myGroup[0], pkt->info_val);
@@ -140,6 +142,8 @@ void not_orgHandler(packet *pkt, int src) {
     }
 
     int maxOrgs = (T - countBeated()) / G;
+
+    orgsNumber = countOgrs();
 
     //println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
 
@@ -235,6 +239,8 @@ void acceptHandler(packet *pkt, int src) {
     tab[src].role = TUR;
     tab[src].value = tid;
 
+    orgsNumber = countOgrs();
+
     println("%d joining my group!", src);
 
     if (inviteResponses >= missing || FORCE_END == 1) {
@@ -298,7 +304,7 @@ void guide_reqHandler(packet *pkt, int src) {
 void guide_respHandler(packet *pkt, int src) {
 
     if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
-        int orgsNumber = countOgrs();
+        orgsNumber = countOgrs();
 
         if(pkt->info_val == 0) {
             pthread_mutex_lock(&permission_mtx);

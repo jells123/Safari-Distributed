@@ -22,6 +22,7 @@ int BEATED_PROBABILITY = 30;
 int TIME_BEATED = 3;
 int GUIDE_TIME_BEATED = 5;
 int lastReqTimestamp;
+int orgsNumber = 0;
 
 int lonelyOrgs = 0, deadlocks = 0;
 
@@ -159,7 +160,7 @@ void reserveGuide() {
     notInterestedOgrs = 0;
     int neededPermissions = 0;
 
-    int orgsNumber = countOgrs();
+    orgsNumber = countOgrs();
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
@@ -507,6 +508,8 @@ void orgsDeadlockProcess() {
                     // println("I'm not ORG anymore. :/\n");
                     myGroup.clear();
                     currentRole = TUR;
+
+                    orgsNumber = countOgrs();
 
                     packet msg = { ++timestamp, NOT_ORG, -1 };
                     for (int i = 0; i < size; i++)
