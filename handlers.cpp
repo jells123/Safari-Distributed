@@ -121,7 +121,7 @@ void change_groupHandler(packet *pkt, int src) {
 
 void not_orgHandler(packet *pkt, int src) {
 
-    //println("Oczymaem od [%d]\n", src);
+    println("Oczymaem od [%d]\n", src);
 
 	if (tab[src].role == ORG) {
 		// jakiś organizator zrezygnował...
@@ -141,9 +141,20 @@ void not_orgHandler(packet *pkt, int src) {
             touristsCount++;
     }
 
+    orgsNumber = countOgrs();
     int maxOrgs = (T - countBeated()) / G;
 
-    orgsNumber = countOgrs();
+    if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs) {
+        int neededPermissions = orgsNumber - P - notInterestedOgrs;
+        println("Currently need: %d permissions to reserve guide\n", neededPermissions);
+
+        if (permissions >= neededPermissions || FORCE_END == 1) {
+            pthread_mutex_lock(&permission_mtx);
+            println("[not ogr] So I can come in!\n");
+            pthread_cond_signal(&permission_cond);
+            pthread_mutex_unlock(&permission_mtx);
+        }
+    }
 
     //println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
 
@@ -152,7 +163,7 @@ void not_orgHandler(packet *pkt, int src) {
         && maxOrgs - (T - touristsCount) >= tid
         && myGroup.empty() ) {
         currentRole = ORG;
-        // println("I became ORG! Because I could.\n");
+        println("I became ORG! Because I could.\n");
 
         if (currentRole == ORG)
             pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
@@ -315,6 +326,11 @@ void guide_respHandler(packet *pkt, int src) {
         } else if(pkt->info_val == -1) {
             println("Got it but %d not interested...\n", src);
             notInterestedOgrs++;
+            tab[src].role = ORG;
+        }
+
+        for(int i = 0; i < T; i++) {
+            println("proces: %d jest %d\n", i, tab[i].role);
         }
 
         println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);

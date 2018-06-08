@@ -193,7 +193,7 @@ void reserveGuide() {
                 break;
         }
         pthread_mutex_unlock(&timestamp_mtx);
-        while (permissions < countOgrs() - P - notInterestedOgrs)
+        while (permissions < orgsNumber- P - notInterestedOgrs)
             pthread_cond_wait(&permission_cond, &permission_mtx);
     }
     else
