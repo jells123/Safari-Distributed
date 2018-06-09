@@ -328,61 +328,27 @@ void comeBack() {
     println("Ended trip\n");
 
     imOnTrip = false;
-    // deleteFromQueue(tid);
     pthread_mutex_lock(&queue_mtx);
 
     size_t i;
 
     if(!queue.empty()) {
         println("Sending overdue responses\n");
-        orgInfo orgSorted[queue.size()];
-
-        for (i = 0; i < queue.size(); i++) {
-            orgSorted[i].timestamp = queue[i].timestamp;
-            orgSorted[i].tid = queue[i].tid;
-        }
-
-        int j, timePom, tidPom;
-
-        for (i = 1; i < queue.size(); i++) {
-            timePom = orgSorted[i].timestamp;
-            tidPom = orgSorted[i].tid;
-
-            j = i - 1;
-            while ( j >= 0 &&
-                ((timePom < orgSorted[j].timestamp)
-                    || (timePom == orgSorted[j].timestamp
-                        && tidPom < orgSorted[j].tid))) {
-
-                    orgSorted[j+1].timestamp = orgSorted[j].timestamp;
-                    orgSorted[j+1].tid = orgSorted[j].tid;
-                    j--;
-
-            }
-            orgSorted[j+1].timestamp = timePom;
-            orgSorted[j+1].tid = tidPom;
-        }
-
-        // for (i = 0; i < queue.size(); i++) {
-        //     println("%d: %d\n", orgSorted[i].tid, orgSorted[i].timestamp);
-        // }
-
-        // println("[comeBack] Nailed it!\n");
-
+        
         pthread_mutex_lock(&timestamp_mtx);
         packet msg = { ++timestamp, GUIDE_RESP, 0 };
         pthread_mutex_unlock(&timestamp_mtx);
 
         for (i = 0; i < queue.size(); i++) {
-            if (orgSorted[i].tid != tid) {
-                MPI_Send( &msg, 1, MPI_PAKIET_T, orgSorted[i].tid, MSG_TAG, MPI_COMM_WORLD);
-                println("Ok, I let you [%d] reserve a guide\n", orgSorted[i].tid);
+            if (queue[i].tid != tid) {
+                MPI_Send( &msg, 1, MPI_PAKIET_T, queue[i].tid, MSG_TAG, MPI_COMM_WORLD);
+                println("Ok, I let you [%d] reserve a guide\n", queue[i].tid);
             }// else
                 // println("Why am I still in the queue?\n");
         }
         queue.clear();
-        pthread_mutex_unlock(&queue_mtx);
     }
+    pthread_mutex_unlock(&queue_mtx);
 }
 
 

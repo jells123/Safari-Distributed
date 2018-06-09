@@ -144,7 +144,7 @@ void not_orgHandler(packet *pkt, int src) {
     orgsNumber = countOgrs();
     int maxOrgs = (T - countBeated()) / G;
 
-    if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs) {
+    if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs && imOnTrip == false) {
         int neededPermissions = orgsNumber - P - notInterestedOgrs;
         println("Currently need: %d permissions to reserve guide\n", neededPermissions);
 
@@ -314,39 +314,41 @@ void guide_reqHandler(packet *pkt, int src) {
 
 void guide_respHandler(packet *pkt, int src) {
 
-    if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
-        orgsNumber = countOgrs();
+    if(imOnTrip == false) {
+        if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
+            orgsNumber = countOgrs();
 
-        if(pkt->info_val == 0) {
-            pthread_mutex_lock(&permission_mtx);
-            permissions++;
-            println("Got permission from [%d]\n", src);
-            pthread_mutex_unlock(&permission_mtx);
+            if(pkt->info_val == 0) {
+                pthread_mutex_lock(&permission_mtx);
+                permissions++;
+                println("Got permission from [%d]\n", src);
+                pthread_mutex_unlock(&permission_mtx);
 
-        } else if(pkt->info_val == -1) {
-            println("Got it but %d not interested...\n", src);
-            notInterestedOgrs++;
-            tab[src].role = ORG;
+            } else if(pkt->info_val == -1) {
+                println("Got it but %d not interested...\n", src);
+                notInterestedOgrs++;
+                tab[src].role = ORG;
+            }
+
+            for(int i = 0; i < T; i++) {
+                println("proces: %d jest %d\n", i, tab[i].role);
+            }
+
+            println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
+
+            int neededPermissions = orgsNumber - P - notInterestedOgrs;
+            println("Currently need: %d permissions to reserve guide\n", neededPermissions);
+
+            if (permissions >= neededPermissions || FORCE_END == 1) {
+                pthread_mutex_lock(&permission_mtx);
+                println("So I can come in!\n");
+                pthread_cond_signal(&permission_cond);
+                pthread_mutex_unlock(&permission_mtx);
+            }
+
+        } else {
+            println("Response out of date, timestamp: %d, request timestamp: %d \n", pkt->timestamp, lastReqTimestamp);
         }
-
-        for(int i = 0; i < T; i++) {
-            println("proces: %d jest %d\n", i, tab[i].role);
-        }
-
-        println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
-
-        int neededPermissions = orgsNumber - P - notInterestedOgrs;
-        println("Currently need: %d permissions to reserve guide\n", neededPermissions);
-
-        if (permissions >= neededPermissions || FORCE_END == 1) {
-            pthread_mutex_lock(&permission_mtx);
-            println("So I can come in!\n");
-            pthread_cond_signal(&permission_cond);
-            pthread_mutex_unlock(&permission_mtx);
-        }
-
-    } else {
-        println("Response out of date, timestamp: %d, request timestamp: %d \n", pkt->timestamp, lastReqTimestamp);
     }
 }
 
