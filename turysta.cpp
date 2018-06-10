@@ -186,6 +186,15 @@ void doOrgWork() {
     if (myGroup.size() + 1 == G && currentRole == ORG) {
         orgsNumber = countOgrs();
 
+        /*
+        PROBLEMO:
+        1. Proces rozesłał overdue responses
+        2. Odnotowano response'a :)
+        3. Proces, który rozesłał overdue, został Turystą i rozesłał NOT_ORG
+        4. To oznacza że zmalało orgsNumber, więc potrzeba mniej permissions.
+        5. BA DUM TSSSS!
+        */
+
         // sprawdzamy jeszcze raz, bo deadlock
         if (reqSent == false) {
             println("I've got a group! \n");
@@ -193,8 +202,10 @@ void doOrgWork() {
             pthread_mutex_unlock(&state_mtx);
             return;
         } else {
+            println("[STATUS] Number of ogrs: %d, not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
             if (permissions < orgsNumber - P - notInterestedOgrs) {
-                println("[STATUS] Number of ogrs: %d, not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
+            // if permissions < neededPermissions - P + 1  ??? 
+            // czy to załatwia sprawę?
                 pthread_mutex_unlock(&state_mtx);
                 return;
             } else {
@@ -425,7 +436,6 @@ void *waitForTripEnd(void *ptr) {
     // pthread_mutex_lock(&state_mtx);
     imOnTrip = false;
     comeBack();
-
 
     timestamp++;
     packet msg = { timestamp, TRIP_END, -1 };

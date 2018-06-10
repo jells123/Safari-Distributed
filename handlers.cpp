@@ -254,17 +254,20 @@ void guide_reqHandler(packet *pkt, int src) {
 void guide_respHandler(packet *pkt, int src) {
     tab[src].role = ORG;
 
-    if(imOnTrip == false) {
+    if (imOnTrip == false) {
+
+        permissions++;
+
         if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
             orgsNumber = countOgrs();
 
             if(pkt->info_val == 0) {
-                permissions++;
+                // permissions++;
                 println("Got permission from [%d]\n", src);
 
             } else if(pkt->info_val == -1) {
                 println("Got it but %d not interested...\n", src);
-                notInterestedOgrs++;
+                // notInterestedOgrs++;
             }
 
             // println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
@@ -307,7 +310,24 @@ void trip_endHandler(packet *pkt, int src) {
         randomRole();
 	}
 	else {
-    	// println("End of %ds trip notification. \n", src);
+        // SPECIALLY FOR LONELY TOURISTS <3
+
+    	int touristsCount = 0;
+        for (int i = 0; i < size; i++) {
+            if (tab[i].role == TUR)
+                touristsCount++;
+        }
+
+        int maxOrgs = countMaxOrgs();
+        if (currentRole == TUR
+            && T - touristsCount < maxOrgs
+            && tid <= maxOrgs
+            && myGroup.empty() ) 
+        {
+            currentRole = ORG;
+            println("[lonely orgs] I became ORG! Because I could.\n");
+
+        }
 	}
 
 }
