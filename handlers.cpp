@@ -40,67 +40,61 @@ void omg_deadlockHandler(packet *pkt, int src) {
 
 
 void inviteHandler(packet *pkt, int src) {
-	// println("invite handler\n");
+
+    tab[src].role = ORG;
+    tab[src].value = pkt->info_val;
+    println("Yay! Invitation from %d! (value %d)\n", src, pkt->info_val);
 
     if (beated) {
         packet msg = { timestamp, I_WAS_BEATED, 0 };
-        sleep(1);
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Responding with I was beated to %d\n", src);
     }
     else if (currentRole == TUR && myGroup.empty()) {
         myGroup.push_back(src);
         packet msg = { timestamp, ACCEPT, 0 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Sending ACCEPT for %d\n", src);
+        tab[src].value--; //?
     }
     else if (currentRole == TUR && !myGroup.empty()) {
         packet msg = { timestamp, REJECT_HASGROUP, myGroup[0] };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Sending 'i have a group (%d) ' to %d\n", myGroup[0], src);
     }
     else if (currentRole == ORG) {
-        packet msg = { timestamp, REJECT_ISORG, (int) (G - myGroup.size() - 1) };
+        packet msg = { timestamp, REJECT_ISORG, (int) (G - 1 - myGroup.size()) };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-    	// println("Sending 'i am org too' to %d\n", src);
     }
     else {
-    	// println("InviteHandler - responded with nothing? Role %d\n", currentRole);
+        println("InviteHandler - none of these above? Role %d\n", currentRole);
     }
 
-    tab[src].role = ORG;
 }
 
 
 void change_groupHandler(packet *pkt, int src) {
-	// println("change_group handler\n");
 
 	/*
 		To trzeba natychmiast przestać organizować!
 	*/
 
 	if (currentRole == ORG) {
+        return;
+        
 		println("I was org but I have to cancel it :< \n");
 
 		for (size_t i = 0; i < myGroup.size(); i++) {
-			if(tab[myGroup[i]].role != ORG)
+			if (tab[myGroup[i]].role != ORG)
 				tab[myGroup[i]].value = -1;
 		}
 
 	}
-	// else {
 
 	currentRole = TUR;
-
     tab[tid].role = TUR;
     tab[tid].value = pkt->info_val;
 
-    orgsNumber = countOgrs();
-
     if (myGroup.size() > 0) {
     	if (myGroup[0] != pkt->info_val) {
-	        println("Group change! From %d to %d\n", myGroup[0], pkt->info_val);
-	        myGroup.clear();
+	        println("Group change! From %d to %d (%d told me!)\n", myGroup[0], pkt->info_val, src);
     	}
     	else {
     		// println("Group change - i'm already in that group...\n");
@@ -121,11 +115,11 @@ void change_groupHandler(packet *pkt, int src) {
 
 void not_orgHandler(packet *pkt, int src) {
 
-    println("Oczymaem od [%d]\n", src);
+    println("%d says it's not ORG...\n", src);
 
 	if (tab[src].role == ORG) {
 		// jakiś organizator zrezygnował...
-		for (int i = 0; i < size; i++) {
+		for (int i = 0; i < T; i++) {
 			if (tab[i].value == src && tab[i].role == TUR) {
 				tab[i].value = -1;
 			}
@@ -141,32 +135,32 @@ void not_orgHandler(packet *pkt, int src) {
             touristsCount++;
     }
 
-    orgsNumber = countOgrs();
-    int maxOrgs = (T - countBeated()) / G;
+    // orgsNumber = countOgrs();
+    // int maxOrgs = (T - countBeated()) / G;
 
-    if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs) {
-        int neededPermissions = orgsNumber - P - notInterestedOgrs;
-        println("Currently need: %d permissions to reserve guide\n", neededPermissions);
+    // if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs) {
+    //     int neededPermissions = orgsNumber - P - notInterestedOgrs;
+    //     println("Currently need: %d permissions to reserve guide\n", neededPermissions);
 
-        if (permissions >= neededPermissions || FORCE_END == 1) {
-            pthread_mutex_lock(&permission_mtx);
-            println("[not ogr] So I can come in!\n");
-            pthread_cond_signal(&permission_cond);
-            pthread_mutex_unlock(&permission_mtx);
-        }
-    }
+    //     if (permissions >= neededPermissions || FORCE_END == 1) {
+    //         pthread_mutex_lock(&permission_mtx);
+    //         println("[not ogr] So I can come in!\n");
+    //         pthread_cond_signal(&permission_cond);
+    //         pthread_mutex_unlock(&permission_mtx);
+    //     }
+    // }
 
     //println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
 
+    int maxOrgs = countMaxOrgs();
     if (currentRole == TUR
         && T - touristsCount < maxOrgs
         && maxOrgs - (T - touristsCount) >= tid
-        && myGroup.empty() ) {
+        && myGroup.empty() ) 
+    {
         currentRole = ORG;
         println("I became ORG! Because I could.\n");
 
-        if (currentRole == ORG)
-            pthread_create( &sender_th, NULL, orgThreadFunction, 0 );
     }
 
 }
@@ -174,91 +168,58 @@ void not_orgHandler(packet *pkt, int src) {
 
 void reject_isorgHandler(packet *pkt, int src) {
 
-    pthread_mutex_lock(&inviteResponses_mtx);
-    inviteResponses++;
+    println("%d says it's org too (value %d)\n", src, pkt->info_val);
 
     tab[src].role = ORG;
     tab[src].value = pkt->info_val;
+    inviteResponses++;
 
-    // println("%d is org too. \n", src);
-
-    if (inviteResponses >= missing || FORCE_END == 1) {
-        pthread_cond_signal(&inviteResponses_cond);
-    }
-
-    pthread_mutex_unlock(&inviteResponses_mtx);
 }
 
 
 void reject_hasgroupHandler(packet *pkt, int src) {
-	// println("reject_hasgroup handler\n");
 
-    pthread_mutex_lock(&inviteResponses_mtx);
-    inviteResponses++;
+    println("%d says it has a group [%d]\n", src, pkt->info_val);
 
     tab[src].role = TUR;
     tab[src].value = pkt->info_val;
+
     tab[pkt->info_val].role = ORG;
+    inviteResponses++;
 
     // println("%d already has group -> %d :/\n", src, pkt->info_val);
-    if (pkt->info_val == tid && currentRole == ORG) {
-    	// trochę wiksa...
-    	size_t i;
-    	for (i = 0; i < myGroup.size(); i++) {
-    		if (myGroup[i] == src) {
-    			break;
-    		}
-    	}
-    	if (i == myGroup.size())
-    		myGroup.push_back(src);
-    }
-
-    if (inviteResponses >= missing || FORCE_END == 1) {
-        pthread_cond_signal(&inviteResponses_cond);
-    }
-
-    pthread_mutex_unlock(&inviteResponses_mtx);
-
+    // if (pkt->info_val == tid && currentRole == ORG) {
+    // 	// trochę wiksa...
+    // 	size_t i;
+    // 	for (i = 0; i < myGroup.size(); i++) {
+    // 		if (myGroup[i] == src) {
+    // 			break;
+    // 		}
+    // 	}
+    // 	if (i == myGroup.size())
+    // 		myGroup.push_back(src);
+    // }
 }
 
 void i_was_beatedHandler(packet *pkt, int src) {
-	// println("beated handler\n");
-
-    pthread_mutex_lock(&inviteResponses_mtx);
-    inviteResponses++;
 
     tab[src].role = BEATED;
     tab[src].value = -666;
+    inviteResponses++;
 
-    // println("%d was beated :ooo\n", src);
-
-    if (inviteResponses >= missing || FORCE_END == 1) {
-        pthread_cond_signal(&inviteResponses_cond);
-    }
-
-    pthread_mutex_unlock(&inviteResponses_mtx);
 }
 
 
 void acceptHandler(packet *pkt, int src) {
-	// println("accept handler\n");
 
-	pthread_mutex_lock(&inviteResponses_mtx);
-    inviteResponses++;
     myGroup.push_back(src);
 
     tab[src].role = TUR;
     tab[src].value = tid;
 
-    orgsNumber = countOgrs();
-
     println("%d joining my group!", src);
+    inviteResponses++;
 
-    if (inviteResponses >= missing || FORCE_END == 1) {
-        pthread_cond_signal(&inviteResponses_cond);
-    }
-
-    pthread_mutex_unlock(&inviteResponses_mtx);
 }
 
 
@@ -353,6 +314,7 @@ void guide_respHandler(packet *pkt, int src) {
 
 void trip_endHandler(packet *pkt, int src) {
 
+    println("Trip End message from %d!\n", src);
 
     for (int i = 0; i < size; i++) {
         if ( (tab[i].role == TUR && tab[i].value == src)
@@ -362,26 +324,22 @@ void trip_endHandler(packet *pkt, int src) {
         }
     }
 
-    // if(currentRole == ORG && src != tid)
-    //     deleteFromQueue(src);
-
-    if (src == tid) {
-        myGroup.clear();
-        decideIfBeated();
-        currentRole = UNKNOWN;
-        // println("End of my own trip notification. \n");
-        myGroup.clear();
-
-        ORG_PROBABILITY = 5;
-        randomRole();
-    }
-    else if (currentRole == TUR && !myGroup.empty() && myGroup[0] == src) {
+    // if (src == tid) {
+    //     myGroup.clear();
+    //     decideIfBeated();
+    //     currentRole = UNKNOWN;
+    //     // println("End of my own trip notification. \n");
+    //     randomRole();
+    // }
+    // else 
+    if (currentRole == TUR 
+        && !myGroup.empty() 
+        && myGroup[0] == src) 
+    {
         myGroup.clear();
         decideIfBeated();
         currentRole = UNKNOWN;
         // println("End of %ds trip notification, which I belong to (TUR) \n", src);
-
-        ORG_PROBABILITY = 5;
         randomRole();
 	}
 	else {
