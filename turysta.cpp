@@ -22,11 +22,10 @@ int BEATED_PROBABILITY = 30;
 int TIME_BEATED = 3;
 int GUIDE_TIME_BEATED = 5;
 int lastReqTimestamp;
-int orgsNumber = 0;
+int reqNumber = 0;
 int reqSent = false;
 
 int lonelyOrgs = 0, deadlocks = 0;
-int neededPermissions;
 
 volatile sig_atomic_t FORCE_END = 0;
 
@@ -184,8 +183,6 @@ void doOrgWork() {
     }
 
     if (myGroup.size() + 1 == G && currentRole == ORG) {
-        orgsNumber = countOgrs();
-
         // sprawdzamy jeszcze raz, bo deadlock
         if (reqSent == false) {
             println("I've got a group! \n");
@@ -193,8 +190,8 @@ void doOrgWork() {
             pthread_mutex_unlock(&state_mtx);
             return;
         } else {
-            if (permissions < orgsNumber - P - notInterestedOgrs) {
-                println("[STATUS] Number of ogrs: %d, not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
+            if (permissions < reqNumber - P) {          //+ 1) { ???
+                println("[STATUS] Need: %d, currently have %d permissions\n", reqNumber, permissions);
                 pthread_mutex_unlock(&state_mtx);
                 return;
             } else {
@@ -215,6 +212,7 @@ void tripFinito() {
     imOnTrip = true;
     awaitingResponsesCount = 0;
     inviteResponses = 0;
+    reqSent = false;
 
     pthread_create( &trip_th, NULL, waitForTripEnd, 0);
 
@@ -364,6 +362,16 @@ vector<int> getPossibleInvitations() {
     return result;
 }
 
+void deleteFromQueue(int id) {
+    for(size_t i = 0; i < queue.size(); i++) {
+        if(queue[i].tid == id) {
+            println("Removing %d from queue\n", id);
+            queue.erase(queue.begin() + i);
+            return;
+        }
+    }
+}
+
 bool canInvite(int numberOfTurs) {
     int count = 0;
     for (int i = 0; i < T; i++) {
@@ -384,15 +392,13 @@ void reserveGuide() {
     println("GIMME GUIDE!\n");
 
     permissions = 0;
-    notInterestedOgrs = 0;
-    neededPermissions = 0;
-
-    orgsNumber = countOgrs();
+    reqNumber = 0;
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
             reqPermissions.push_back(i);
+            reqNumber++;
         }
     }
 
@@ -403,6 +409,7 @@ void reserveGuide() {
         if(i != tid && find(reqPermissions.begin(), reqPermissions.end(), i) == reqPermissions.end()) {
             reqPermissions.push_back(i);
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+            reqNumber++;
         }
         i++;
     }
@@ -653,7 +660,7 @@ void orgsDeadlockProcess() {
                     myGroup.clear();
                     currentRole = TUR;
 
-                    orgsNumber = countOgrs();
+                    // orgsNumber = countOgrs();
 
                     packet msg = { ++timestamp, NOT_ORG, -1 };
                     for (int i = 0; i < size; i++)
