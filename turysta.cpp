@@ -181,8 +181,10 @@ void doOrgWork() {
         possibleInv.clear();    
     }
 
-    if (myGroup.size() + 1 == G) {
+    if (myGroup.size() + 1 == G && currentRole == ORG) {
         // sprawdzamy jeszcze raz, bo deadlock
+        
+        
         println("I've got a group!\n");
         tripFinito();
     }

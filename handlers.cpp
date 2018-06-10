@@ -43,7 +43,6 @@ void inviteHandler(packet *pkt, int src) {
 
     tab[src].role = ORG;
     tab[src].value = pkt->info_val;
-    println("Yay! Invitation from %d! (value %d)\n", src, pkt->info_val);
 
     if (beated) {
         packet msg = { timestamp, I_WAS_BEATED, 0 };
@@ -53,15 +52,19 @@ void inviteHandler(packet *pkt, int src) {
         myGroup.push_back(src);
         packet msg = { timestamp, ACCEPT, 0 };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-        tab[src].value--; //?
+        // tab[src].value--; //?
+        println("Yay! Invitation from %d! ACCEPT :) (value %d)\n", src, pkt->info_val);
     }
     else if (currentRole == TUR && !myGroup.empty()) {
         packet msg = { timestamp, REJECT_HASGROUP, myGroup[0] };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+        println("Yay! Invitation from %d! REJECT_HASGROUP[%d] (value %d)\n", src, myGroup[0], pkt->info_val);
     }
     else if (currentRole == ORG) {
         packet msg = { timestamp, REJECT_ISORG, (int) (G - 1 - myGroup.size()) };
         MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+        println("Yay! Invitation from %d! REJECT_ISORG[%d] (value %d)\n", src, (int) (G - 1 - myGroup.size()), pkt->info_val);
+        
     }
     else {
         println("InviteHandler - none of these above? Role %d\n", currentRole);
@@ -141,10 +144,11 @@ void not_orgHandler(packet *pkt, int src) {
     // if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs) {
     //     int neededPermissions = orgsNumber - P - notInterestedOgrs;
     //     println("Currently need: %d permissions to reserve guide\n", neededPermissions);
-    if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs && imOnTrip == false) {
-        int neededPermissions = orgsNumber - P - notInterestedOgrs;
-        println("Currently need: %d permissions to reserve guide\n", neededPermissions);
+    // if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs && imOnTrip == false) {
+    //     int neededPermissions = orgsNumber - P - notInterestedOgrs;
+    //     println("Currently need: %d permissions to reserve guide\n", neededPermissions);
 
+    // }
     //     if (permissions >= neededPermissions || FORCE_END == 1) {
     //         pthread_mutex_lock(&permission_mtx);
     //         println("[not ogr] So I can come in!\n");
