@@ -118,8 +118,6 @@ void change_groupHandler(packet *pkt, int src) {
 
 void not_orgHandler(packet *pkt, int src) {
 
-    println("%d says it's not ORG...\n", src);
-
 	if (tab[src].role == ORG) {
 		// jakiś organizator zrezygnował...
 		for (int i = 0; i < T; i++) {
@@ -138,12 +136,16 @@ void not_orgHandler(packet *pkt, int src) {
             touristsCount++;
     }
 
+
     // orgsNumber = countOgrs();
     int maxOrgs = countMaxOrgs();
+    println("%d says it's not ORG... (touristsCount: %d, maxOrgs: %d)\n", src, touristsCount, maxOrgs);
+
 
     if (currentRole == TUR
         && T - touristsCount < maxOrgs
-        && maxOrgs - (T - touristsCount) >= tid
+        && tid <= maxOrgs
+        // && maxOrgs - (T - touristsCount) >= tid
         && myGroup.empty() ) 
     {
         currentRole = ORG;
@@ -219,22 +221,30 @@ void guide_reqHandler(packet *pkt, int src) {
             size_t groupSize = G-1;
 
             if(myGroup.size() != groupSize) {
-                packet msg = { ++timestamp, GUIDE_RESP, -1 };
+                packet msg = { timestamp, GUIDE_RESP, -1 };
                 MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
+                println("Guide Request from %d - not interested\n", src);
 
             } else if(myGroup.size() == groupSize
                 && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp
                     && src < tid))) {
+                println("Guide Request from %d - request OK\n", src);
 
-                packet msg = { ++timestamp, GUIDE_RESP, 0 };
+                packet msg = { timestamp, GUIDE_RESP, 0 };
                 MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);            
 
             } else {
+
+                println("Guide Request from %d - add to queue\n", src);
+
                 orgInfo hisInfo = { pkt->timestamp, src };
                 queue.push_back(hisInfo);
             }
 
         } else {
+
+            println("Guide Request from %d - I'm trippin'\n", src);
+
             orgInfo hisInfo = { pkt->timestamp, src };
             queue.push_back(hisInfo);
         }
@@ -257,7 +267,7 @@ void guide_respHandler(packet *pkt, int src) {
                 notInterestedOgrs++;
             }
 
-            println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
+            // println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
 
         } else {
             println("Response out of date, timestamp: %d, request timestamp: %d \n", pkt->timestamp, lastReqTimestamp);

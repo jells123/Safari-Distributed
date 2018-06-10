@@ -120,12 +120,12 @@ void *receiveMessages(void *ptr) {
 
         pthread_mutex_lock(&state_mtx);
 
+        timestamp = max(timestamp, pkt.timestamp);
         for (size_t i = 0; i < handlers.size(); i++) {
             if (handlers[i].msgType == pkt.type) {
                 handlers[i].handler( &pkt, status.MPI_SOURCE );
             }
         }
-        timestamp = max(timestamp, pkt.timestamp);
 
         pthread_mutex_unlock(&state_mtx);
 
@@ -184,14 +184,18 @@ void doOrgWork() {
     }
 
     if (myGroup.size() + 1 == G && currentRole == ORG) {
+        orgsNumber = countOgrs();
+
         // sprawdzamy jeszcze raz, bo deadlock
-        if(reqSent == false) {
-            println("I've got a group!\n");
+        if (reqSent == false) {
+            println("I've got a group! \n");
             reserveGuide();
+            pthread_mutex_unlock(&state_mtx);
             return;
         } else {
-            if(permissions < orgsNumber - P - notInterestedOgrs) {
+            if (permissions < orgsNumber - P - notInterestedOgrs) {
                 println("[STATUS] Number of ogrs: %d, not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
+                pthread_mutex_unlock(&state_mtx);
                 return;
             } else {
                 println("Got a Guide!\n");
@@ -374,10 +378,10 @@ bool canInvite(int numberOfTurs) {
 }
 
 void reserveGuide() {
-    println("GIMME GUIDE!\n");
     packet msg = { ++timestamp, GUIDE_REQ, 0 };
     lastReqTimestamp = timestamp;
 
+    println("GIMME GUIDE!\n");
 
     permissions = 0;
     notInterestedOgrs = 0;
@@ -508,10 +512,11 @@ void comeBack() {
 
     imOnTrip = false;
     size_t i;
+    permissions = 0;
 
     if(!queue.empty()) {
         println("Sending overdue responses\n");
-        packet msg = { ++timestamp, GUIDE_RESP, 0 };
+        packet msg = { timestamp, GUIDE_RESP, 0 };
 
         for (i = 0; i < queue.size(); i++) {
             if (queue[i].tid != tid) {
