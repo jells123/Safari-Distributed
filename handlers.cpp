@@ -135,27 +135,9 @@ void not_orgHandler(packet *pkt, int src) {
             touristsCount++;
     }
 
-    // orgsNumber = countOgrs();
-    // int maxOrgs = (T - countBeated()) / G;
-
-    // if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs) {
-    //     int neededPermissions = orgsNumber - P - notInterestedOgrs;
-    //     println("Currently need: %d permissions to reserve guide\n", neededPermissions);
-    if(currentRole == ORG && myGroup.size() == G-1 && orgsNumber >= maxOrgs && imOnTrip == false) {
-        int neededPermissions = orgsNumber - P - notInterestedOgrs;
-        println("Currently need: %d permissions to reserve guide\n", neededPermissions);
-
-    //     if (permissions >= neededPermissions || FORCE_END == 1) {
-    //         pthread_mutex_lock(&permission_mtx);
-    //         println("[not ogr] So I can come in!\n");
-    //         pthread_cond_signal(&permission_cond);
-    //         pthread_mutex_unlock(&permission_mtx);
-    //     }
-    // }
-
-    //println("Turystow jest: %d, jestem %d, myGroup.size: %d\n", touristsCount, currentRole, myGroup.size());
-
+    orgsNumber = countOgrs();
     int maxOrgs = countMaxOrgs();
+
     if (currentRole == TUR
         && T - touristsCount < maxOrgs
         && maxOrgs - (T - touristsCount) >= tid
@@ -227,88 +209,52 @@ void acceptHandler(packet *pkt, int src) {
 
 
 void guide_reqHandler(packet *pkt, int src) {
-	tab[src].role = ORG;
+    tab[src].role = ORG;
 
-    if (currentRole == ORG && imOnTrip == false) {
+    if(currentRole == ORG) {
+        if (imOnTrip == false) {
+            size_t groupSize = G-1;
 
-        size_t groupSize = G-1;
+            if(myGroup.size() != groupSize) {
+                packet msg = { ++timestamp, GUIDE_RESP, -1 };
+                MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
 
-        if(myGroup.size() != groupSize) {
-            pthread_mutex_lock(&timestamp_mtx);
-            packet msg = { ++timestamp, GUIDE_RESP, -1 };
-            pthread_mutex_unlock(&timestamp_mtx);
+            } else if(myGroup.size() == groupSize
+                && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp
+                    && src < tid))) {
 
-            MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-            // println("I'm not interested, [%d] sry\n", src);
+                packet msg = { ++timestamp, GUIDE_RESP, 0 };
+                MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);            
 
-        } else if(myGroup.size() == groupSize
-            && (pkt->timestamp < timestamp || (pkt->timestamp == timestamp
-                && src < tid))) {
-
-			//if (queue.size() < P) {
-				pthread_mutex_lock(&timestamp_mtx);
-		        packet msg = { ++timestamp, GUIDE_RESP, 0 };
-		        pthread_mutex_unlock(&timestamp_mtx);
-
-
-		        MPI_Send( &msg, 1, MPI_PAKIET_T, src, MSG_TAG, MPI_COMM_WORLD);
-		        // println("Ok, I let you [%d] reserve a guide\n", src);
-
-			//}	
-            
+            } else {
+                orgInfo hisInfo = { pkt->timestamp, src };
+                queue.push_back(hisInfo);
+            }
 
         } else {
             orgInfo hisInfo = { pkt->timestamp, src };
-
-            pthread_mutex_lock(&queue_mtx);
             queue.push_back(hisInfo);
-            pthread_mutex_unlock(&queue_mtx);
-            // println("I won't let you [%d] reserve a guide! For now..\n", src);
         }
-
-    } else {
-        orgInfo hisInfo = { pkt->timestamp, src };
-
-        pthread_mutex_lock(&queue_mtx);
-        queue.push_back(hisInfo);
-        pthread_mutex_unlock(&queue_mtx);
-        // println("I'm not an ogr...\n");
     }
 }
 
 void guide_respHandler(packet *pkt, int src) {
+    tab[src].role = ORG;
 
     if(imOnTrip == false) {
         if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
             orgsNumber = countOgrs();
 
             if(pkt->info_val == 0) {
-                pthread_mutex_lock(&permission_mtx);
                 permissions++;
                 println("Got permission from [%d]\n", src);
-                pthread_mutex_unlock(&permission_mtx);
 
             } else if(pkt->info_val == -1) {
                 println("Got it but %d not interested...\n", src);
                 notInterestedOgrs++;
-                tab[src].role = ORG;
-            }
-
-            for(int i = 0; i < T; i++) {
-                println("proces: %d jest %d\n", i, tab[i].role);
             }
 
             println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
-
-            int neededPermissions = orgsNumber - P - notInterestedOgrs;
-            println("Currently need: %d permissions to reserve guide\n", neededPermissions);
-
-            if (permissions >= neededPermissions || FORCE_END == 1) {
-                pthread_mutex_lock(&permission_mtx);
-                println("So I can come in!\n");
-                pthread_cond_signal(&permission_cond);
-                pthread_mutex_unlock(&permission_mtx);
-            }
 
         } else {
             println("Response out of date, timestamp: %d, request timestamp: %d \n", pkt->timestamp, lastReqTimestamp);
