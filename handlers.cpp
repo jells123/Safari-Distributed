@@ -2,7 +2,6 @@
 #include "turysta.h"
 
 std::vector<messageHandler> handlers;
-int notInterestedOgrs;
 
 void addMessageHandler(MsgType type, void (*handler)(packet*, int)) {
     messageHandler newHandler = {
@@ -256,19 +255,17 @@ void guide_respHandler(packet *pkt, int src) {
 
     if (imOnTrip == false) {
 
-        permissions++;
+        if  (currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
+            // orgsNumber = countOgrs();
 
-        if(currentRole == ORG && (pkt->timestamp >= lastReqTimestamp)) {
-            orgsNumber = countOgrs();
+            // if(pkt->info_val == 0) {
+            permissions++;
+            println("Got permission from [%d]\n", src);
 
-            if(pkt->info_val == 0) {
-                // permissions++;
-                println("Got permission from [%d]\n", src);
-
-            } else if(pkt->info_val == -1) {
-                println("Got it but %d not interested...\n", src);
+            // } else if(pkt->info_val == -1) {
+                // println("Got it but %d not interested...\n", src);
                 // notInterestedOgrs++;
-            }
+            // }
 
             // println("Number of ogrs: %d, number of not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
 
@@ -289,6 +286,9 @@ void trip_endHandler(packet *pkt, int src) {
             tab[i].role = UNKNOWN;
             tab[i].value = -1;
         }
+    }
+    if(currentRole == ORG) {
+        deleteFromQueue(src);
     }
 
     // if (src == tid) {

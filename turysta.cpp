@@ -22,11 +22,10 @@ int BEATED_PROBABILITY = 30;
 int TIME_BEATED = 3;
 int GUIDE_TIME_BEATED = 5;
 int lastReqTimestamp;
-int orgsNumber = 0;
+int reqNumber = 0;
 int reqSent = false;
 
 int lonelyOrgs = 0, deadlocks = 0;
-int neededPermissions;
 
 volatile sig_atomic_t FORCE_END = 0;
 
@@ -184,16 +183,6 @@ void doOrgWork() {
     }
 
     if (myGroup.size() + 1 == G && currentRole == ORG) {
-        orgsNumber = countOgrs();
-
-        /*
-        PROBLEMO:
-        1. Proces rozesłał overdue responses
-        2. Odnotowano response'a :)
-        3. Proces, który rozesłał overdue, został Turystą i rozesłał NOT_ORG
-        4. To oznacza że zmalało orgsNumber, więc potrzeba mniej permissions.
-        5. BA DUM TSSSS!
-        */
 
         // sprawdzamy jeszcze raz, bo deadlock
         if (reqSent == false) {
@@ -202,10 +191,8 @@ void doOrgWork() {
             pthread_mutex_unlock(&state_mtx);
             return;
         } else {
-            println("[STATUS] Number of ogrs: %d, not interested: %d, my permissions: %d\n", orgsNumber, notInterestedOgrs, permissions);
-            if (permissions < orgsNumber - P - notInterestedOgrs) {
-            // if permissions < neededPermissions - P + 1  ??? 
-            // czy to załatwia sprawę?
+            if (permissions < reqNumber - P + 1) {          //+ 1) { ???
+                println("[STATUS] Need: %d, currently have %d permissions\n", reqNumber - P + 1, permissions);
                 pthread_mutex_unlock(&state_mtx);
                 return;
             } else {
@@ -226,6 +213,7 @@ void tripFinito() {
     imOnTrip = true;
     awaitingResponsesCount = 0;
     inviteResponses = 0;
+    reqSent = false;
 
     pthread_create( &trip_th, NULL, waitForTripEnd, 0);
 
@@ -375,6 +363,16 @@ vector<int> getPossibleInvitations() {
     return result;
 }
 
+void deleteFromQueue(int id) {
+    for(size_t i = 0; i < queue.size(); i++) {
+        if(queue[i].tid == id) {
+            println("Removing %d from queue\n", id);
+            queue.erase(queue.begin() + i);
+            return;
+        }
+    }
+}
+
 bool canInvite(int numberOfTurs) {
     int count = 0;
     for (int i = 0; i < T; i++) {
@@ -395,15 +393,13 @@ void reserveGuide() {
     println("GIMME GUIDE!\n");
 
     permissions = 0;
-    notInterestedOgrs = 0;
-    neededPermissions = 0;
-
-    orgsNumber = countOgrs();
+    reqNumber = 0;
 
     for (int i = 0; i < size; i++) {
         if (tab[i].role != TUR && i != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
             reqPermissions.push_back(i);
+            reqNumber++;
         }
     }
 
@@ -414,6 +410,7 @@ void reserveGuide() {
         if(i != tid && find(reqPermissions.begin(), reqPermissions.end(), i) == reqPermissions.end()) {
             reqPermissions.push_back(i);
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+            reqNumber++;
         }
         i++;
     }
@@ -433,7 +430,7 @@ void *waitForTripEnd(void *ptr) {
         sleep(TIME_BEATED);
     }
 
-    // pthread_mutex_lock(&state_mtx);
+    pthread_mutex_lock(&state_mtx);
     imOnTrip = false;
     comeBack();
 
@@ -449,12 +446,12 @@ void *waitForTripEnd(void *ptr) {
         tab[myGroup[i]].value = -1;
     }
 
-    myGroup.clear();
     decideIfBeated();
+
     currentRole = UNKNOWN;
     randomRole();
 
-    // pthread_mutex_unlock(&state_mtx);
+    pthread_mutex_unlock(&state_mtx);
 
     return (void *)0;
 }
@@ -463,8 +460,14 @@ void decideIfBeated() {
     int czy_pobity = rand() % 100;
     if (czy_pobity < BEATED_PROBABILITY) {
         beated = true;
+
+        tab[tid].role = BEATED;
+        tab[tid].value = -666;
+
+        pthread_mutex_unlock(&state_mtx);
         println("I got beated! Waiting for being healed.\n");
         sleep(TIME_BEATED);
+        pthread_mutex_lock(&state_mtx);
     }
     beated = false;
 }
@@ -537,293 +540,6 @@ void comeBack() {
         queue.clear();
     }
 }
-
-
-void orgsDeadlockProcess() {
-
-    pthread_mutex_lock(&inviteResponses_mtx);
-    inviteResponses = 0;
-    pthread_mutex_unlock(&inviteResponses_mtx);
-
-    int countOrgs = tabSummary();
-    // deadlocks = 0;
-
-    lonelyOrgs = countOrgs;
-    for (int i = 0; i < size; i++) {
-        if (tab[i].role == ORG && tab[i].value == 0)
-            lonelyOrgs--;
-    }
-
-    int maxOrgs = (T - countBeated()) / G;
-    // if (size - countOrgs - countBeated() <= 1) {
-    //     println("Really shitty stuff going on here. (max Orgs : %d,  count Beated : %d)\n", maxOrgs, countBeated());
-    // }
-    packet msg = { timestamp, OMG_DEADLOCK, lonelyOrgs };
-    for (int i = 0; i < size; i++) {
-        if (tab[i].role == ORG)// && i != tid)
-            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-    }
-
-    deadlock_trouble = true;
-    pthread_mutex_unlock(&state_mtx);
-
-    countOrgs = tabSummary();
-    if(countOrgs < maxOrgs) {
-        int roznica = maxOrgs - countOrgs;
-        int u = 0;
-        while(roznica > 0 || u < T-1) {
-            if(tab[u].role != ORG) {
-                tab[u].role = ORG;
-                tab[u].value = -1;
-                roznica--;
-                u++;
-            }
-        }
-    }
-
-    int indices[T];
-    processInfo procSorted[T];
-    for (int i = 0; i < T; i ++) {
-        indices[i] = i;
-        procSorted[i].value = tab[i].value;
-        procSorted[i].role = tab[i].role;
-    }
-
-    // println("[deadlock] Awaiting deadlocks.\n");
-
-    pthread_mutex_lock(&deadlock_mtx);
-    while (deadlocks < lonelyOrgs)
-        pthread_cond_wait(&deadlock_cond, &deadlock_mtx);
-    pthread_mutex_lock(&state_mtx);
-    pthread_mutex_unlock(&deadlock_mtx);
-
-    // println("[deadlock] Info gathered, proceeding to sort.\n");
-
-
-    deadlocks = 0;
-    lonelyOrgs = 0;
-
-    // pthread_mutex_lock(&tab_mtx);
-
-    int i, j, val, idx;
-    Role role;
-
-    for (i = 1; i < T; i++) {
-        val = procSorted[i].value;
-        role = procSorted[i].role;
-        idx = indices[i];
-
-        j = i-1;
-        while (j >= 0 &&
-                    ( (role == ORG && procSorted[j].role != ORG)
-                    || (role == ORG && procSorted[j].role == ORG && val < procSorted[j].value)
-                    || (role == ORG && procSorted[j].role == ORG && val == procSorted[j].value && idx < indices[j] )
-                    || (role == TUR && procSorted[j].role == BEATED )
-                    )
-                ) {
-            procSorted[j+1].role = procSorted[j].role;
-            procSorted[j+1].value = procSorted[j].value;
-            indices[j+1] = indices[j];
-            j--;
-        }
-        procSorted[j+1].role = role;
-        procSorted[j+1].value = val;
-        indices[j+1] = idx;
-    }
-
-    // for (int i = 0; i < T; i++) {
-    //     println("id %d: role %s, value %d\n", i, rolesNames[tab[i].role], tab[i].value);
-    // }
-
-    // for (i = 0; i < T; i++) {
-    //     println("%d. id %d: %s, %d\n", i, indices[i], rolesNames[procSorted[i].role], procSorted[i].value);
-    // }
-
-    // END OF INSERTION SORT
-    // println("[deadlock] Sorted tab...\n");
-
-
-    // if (countOrgs > MAX_ORGS) {
-    if (countOrgs > maxOrgs) {
-        //println("wchodzę, zaraz zobaczę\n");
-
-        // nadmiarowi organizatorzy rezygnują i mogą dołączać
-        for (i = maxOrgs; i < T; i ++) {
-            if (procSorted[i].role == ORG) {
-                procSorted[i].role = TUR;
-                procSorted[i].value = -1;
-                for (j = 0; j < T; j++) {
-                    if (procSorted[j].role == TUR && procSorted[j].value == indices[i]) {
-                        procSorted[j].value = -1;
-                    }
-                }
-                if (indices[i] == tid) {
-
-                    // println("I'm not ORG anymore. :/\n");
-                    myGroup.clear();
-                    currentRole = TUR;
-
-                    orgsNumber = countOgrs();
-
-                    packet msg = { ++timestamp, NOT_ORG, -1 };
-                    for (int i = 0; i < size; i++)
-                        if (i != tid)
-                            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-                }
-            }
-        }
-
-        for (i = 0; i < maxOrgs; i++) {
-            int turNeeded = procSorted[i].value;
-            if (turNeeded == 0) continue;
-
-            for (j = maxOrgs; j < T; j++) {
-                if (procSorted[j].role == TUR && procSorted[j].value == indices[i])
-                    continue;
-                else if (procSorted[j].role == TUR && procSorted[j].value == -1) {
-                    procSorted[j].value = indices[i];
-                    if (indices[j] != tid) {
-                        packet msg = { timestamp, CHANGE_GROUP, indices[i] };
-                        MPI_Send( &msg, 1, MPI_PAKIET_T, indices[j], MSG_TAG, MPI_COMM_WORLD);
-                    }
-                    else if (indices[j] == tid) {
-                        myGroup.clear();
-                        myGroup.push_back(indices[i]);
-                        currentRole = TUR;
-                    }
-                    turNeeded--;
-                }
-                if (turNeeded == 0) {
-                    procSorted[i].value = turNeeded;
-                    // println("%d joining %d.\n", indices[j], indices[i]);
-                    break;
-                }
-            }
-        }
-    }
-
-    if (currentRole == ORG) {
-        myGroup.clear();
-        for (i = 0; i < T; i++) {
-            if (procSorted[i].role == TUR && procSorted[i].value == tid) {
-                myGroup.push_back(indices[i]);
-            }
-        }
-    }
-
-    deadlock_trouble = false;
-    // pthread_mutex_unlock(&state_mtx);
-}
-
-
-/*
-void *orgThreadFunction(void *ptr) {
-    println("Starting role as an ORG :)\n");
-
-    if (beated)
-        pthread_join(beated_th, NULL);
-    // while (beated) ;
-
-    size_t groupSize = G-1;
-    size_t numberOfTurists = T-1;
-
-    pthread_mutex_lock(&state_mtx);
-    timestamp++;
-
-    tab[tid].role = ORG;
-    tab[tid].value = groupSize;
-
-    lonelyOrgs = 0;
-    deadlocks = 0;
-
-    while (myGroup.size() != groupSize && currentRole == ORG) {
-
-        if (FORCE_END) {
-            clearResources();
-            return (void *)0;
-        }
-
-        if (invitations.size() == numberOfTurists) {
-
-            println("Oh no, deadlock occured.\n");
-            orgsDeadlockProcess();
-            invitations.clear();
-
-            if (currentRole == TUR) {
-                // println("[deadlock solved] I'm not ORG anymore...\n");
-                pthread_mutex_unlock(&state_mtx);
-                return (void *)0;
-            }
-
-            // if (myGroup.size() == groupSize)  {
-            //     // println("[deadlock solved] My group is %d now.\n", (int) myGroup.size());
-            // }
-            // else {
-            //     // println("[deadlock ERROR] LOL MY GROUP SIZE IS %d !@#$\n", (int) myGroup.size());
-            // }
-            pthread_mutex_unlock(&state_mtx);
-
-        }
-
-        else {
-
-            vector<int>::iterator it;
-            int choice;
-            missing = G-1 - myGroup.size();
-
-            if (invitations.size() + missing > numberOfTurists) {
-                missing = T - invitations.size();
-            }
-
-            pthread_mutex_lock(&inviteResponses_mtx);
-            inviteResponses = 0;
-            pthread_mutex_unlock(&inviteResponses_mtx);
-
-            for ( int i = 0; i < missing; ++i ) {
-                do {
-                    choice = rand()%T;
-                    it=find(invitations.begin(), invitations.end(), choice);
-                } while (choice == tid || it != invitations.end());
-                invitations.push_back(choice);
-            }
-
-            packet msg = { timestamp, INVITE, missing };
-
-            for (int i = 0; i < missing; ++i) {
-                int idx = invitations.size() - 1 - i;
-                MPI_Send( &msg, 1, MPI_PAKIET_T, invitations[idx], MSG_TAG, MPI_COMM_WORLD);
-                // println("%d invited :) \n", invitations[idx]);
-            }
-
-            pthread_mutex_unlock(&state_mtx);
-
-            pthread_mutex_lock(&inviteResponses_mtx);
-            while (inviteResponses != missing)
-                pthread_cond_wait(&inviteResponses_cond, &inviteResponses_mtx);
-            pthread_mutex_unlock(&inviteResponses_mtx);
-
-            pthread_mutex_lock(&state_mtx);
-       }
-
-    }
-
-    invitations.clear();
-
-    if (currentRole == ORG) {
-        pthread_mutex_unlock(&state_mtx);
-        println("I've got a group! size is %d :) \n", (int) myGroup.size());
-        reserveGuide();
-        waitForTripEnd(NULL);
-        comeBack();
-    }
-    else {
-        pthread_mutex_unlock(&state_mtx);
-    }
-
-    return (void *)0;
-
-}
-*/
 
 void randomRole() {
 
