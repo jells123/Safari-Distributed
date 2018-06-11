@@ -13,31 +13,6 @@ void addMessageHandler(MsgType type, void (*handler)(packet*, int)) {
     return;
 }
 
-void omg_deadlockHandler(packet *pkt, int src) {
-
-	if (currentRole == ORG) {
-		pthread_mutex_lock(&deadlock_mtx);
-
-	    deadlocks++;
-	    if (lonelyOrgs == 0)
-	    	lonelyOrgs = pkt->info_val;
-	    // println("Deadlock Message from %d, %d/%d\n", src, deadlocks, lonelyOrgs);
-
-	    if (deadlocks >= lonelyOrgs) {
-	        pthread_cond_signal(&deadlock_cond);
-	        deadlocks = 0;
-	        lonelyOrgs = 0;
-	    }
-
-	    pthread_mutex_unlock(&deadlock_mtx);
-	}
-	else {
-		// println("LOL I'm not even an ORG. xd\n");
-	}
-
-}
-
-
 void inviteHandler(packet *pkt, int src) {
 
     tab[src].role = ORG;
@@ -214,8 +189,16 @@ void acceptHandler(packet *pkt, int src) {
 
 void guide_reqHandler(packet *pkt, int src) {
     tab[src].role = ORG;
+    tab[src].value = 0;
 
-    if(currentRole == ORG) {
+    if (guideBeated) {
+        orgInfo newRequest = { pkt->timestamp, src };
+        overdue.push_back(newRequest);
+        return;
+    }
+
+    if (currentRole == ORG) {
+
         if (imOnTrip == false) {
             size_t groupSize = G-1;
 
@@ -312,7 +295,7 @@ void trip_endHandler(packet *pkt, int src) {
         myGroup.clear();
         decideIfBeated();
         currentRole = UNKNOWN;
-        println("End of %ds trip notification, which I belong to (TUR) \n", src);
+        if (DEBUG == 1) println("End of %ds trip notification, which I belong to (TUR) \n", src);
         randomRole();
 	}
 	else {

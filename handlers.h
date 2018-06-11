@@ -31,6 +31,5 @@ void guide_reqHandler(packet *pkt, int src);
 void guide_respHandler(packet *pkt, int src);
 void trip_endHandler(packet *pkt, int src);
 void i_was_beatedHandler(packet *pkt, int src);
-void omg_deadlockHandler(packet *pkt, int src);
 
 #endif
