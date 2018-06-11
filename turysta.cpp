@@ -131,17 +131,17 @@ void doOrgWork() {
         return;
     }
 
-    if (myGroup.size() + 1 < G) {
+    if (myGroup.size() + 1 < (size_t) G) {
         int tursNeeded = G - 1 - myGroup.size();
         vector<int> possibleInv = getPossibleInvitations();
         int countInvited = 0;
 
         timestamp++;
         packet msg = { timestamp, INVITE, tursNeeded };
-        if (possibleInv.size() >= tursNeeded) {
+        if (possibleInv.size() >= (size_t) tursNeeded) {
 
             int beatedCheck = countBeated();
-            if (possibleInv.size() == beatedCheck) {
+            if (possibleInv.size() == (size_t) beatedCheck) {
                 if (DEBUG == 1) println("Only beated pipl left, sleepin'...\n");
                 sleep(1);
             }
@@ -162,21 +162,21 @@ void doOrgWork() {
             // już nie mamy kogo zaprosić!
             if (DEBUG == 1) println("I don't have a group and there's no one left to invite. :<\n");
             deadlockTrouble();
-            if ( !(myGroup.size() + 1 == G && currentRole == ORG) )
+            if ( !(myGroup.size() + 1 == (size_t) G && currentRole == ORG) )
                 pthread_mutex_unlock(&state_mtx);
         }
         else {
             // możemy zaprosić, ale mniej niż nam potrzeba, czyli pewnie zaraz deadlock
             int beatedCheck = countBeated();
-            if (possibleInv.size() == beatedCheck) {
+            if (possibleInv.size() == (size_t) beatedCheck) {
                 if (DEBUG == 1) println("Only beated pipl left, sleepin'...\n");
                 sleep(1);
             }
 
-            for (int i = 0; i < possibleInv.size(); i++) {
+            for (size_t i = 0; i < possibleInv.size(); i++) {
                 MPI_Send( &msg, 1, MPI_PAKIET_T, possibleInv[i], MSG_TAG, MPI_COMM_WORLD);
             }
-            if (DEBUG == 1) println("Sent %d invitations, but it's not enough for my group...\n", possibleInv.size());
+            if (DEBUG == 1) println("Sent %d invitations, but it's not enough for my group...\n", (int) possibleInv.size());
             awaitingResponsesCount = possibleInv.size();
             inviteResponses = 0;
             pthread_mutex_unlock(&state_mtx);
@@ -185,14 +185,14 @@ void doOrgWork() {
         // pthread_mutex_unlock(&state_mtx);
     }
 
-    if (myGroup.size() + 1 == G && currentRole == ORG) {
+    if (myGroup.size() + 1 == (size_t) G && currentRole == (size_t) ORG) {
 
         // sprawdzamy jeszcze raz, bo deadlock
         if (reqSent == false) {
             if (DEBUG == 1) {
                 println("I've got a group! About to send requests. \n");
-                for (int i = 0; i < myGroup.size(); i++) {
-                        println("%d belongs to my group %)\n", myGroup[i]);
+                for (size_t i = 0; i < myGroup.size(); i++) {
+                        println("%d belongs to my group\n", myGroup[i]);
                 }
             }
             reserveGuide();
@@ -368,7 +368,7 @@ void deadlockTrouble() {
         }
         tab[tid].role = currentRole;
         tab[tid].value = G - 1 - myGroup.size();
-        println("[deadlock] Solved! My group size: %d\n", myGroup.size());
+        println("[deadlock] Solved! My group size: %d\n", (int) myGroup.size());
     }
 
 }
@@ -420,35 +420,17 @@ void reserveGuide() {
     if (DEBUG == 1) println("GIMME GUIDE!\n");
 
     permissions = 0;
-    // reqNumber = 0;
-    // reqPermissions.clear();
 
     for (int i = 0; i < size; i++) {
-        if (
-            // tab[i].role != TUR && 
-            i != tid) {
+        if (i != tid) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-            // reqPermissions.push_back(i);
             if (DEBUG == 1) println("Sending request to %d\n", i);
-            // reqNumber++;
         }
     }
+    // size_t reqSize = MAX_ORGS - 1;
 
-    int i = 0;
-    size_t reqSize = MAX_ORGS - 1;
-
-    /*while (reqPermissions.size() < reqSize) {
-        if(i != tid && find(reqPermissions.begin(), reqPermissions.end(), i) == reqPermissions.end()) {
-            reqPermissions.push_back(i);
-            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
-            if (DEBUG == 1) println("Sending request to %d\n", i);
-            reqNumber++;
-        }
-        i++;
-    }*/
     reqSent = true;
     if (DEBUG == 1) println("I've got a group, requested %d processes for a Guide.\n", T - 1);
-    // if (DEBUG == 1) println("I've got a group, requested %d processes for a Guide.\n", reqPermissions.size());
 
 }
 
@@ -467,7 +449,7 @@ void *waitForTripEnd(void *ptr) {
             MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
 
     if (DEBUG == 1) println("TRIP END - everyone notified.\n");
-    for (int i = 0; i < myGroup.size(); i++) {
+    for (size_t i = 0; i < myGroup.size(); i++) {
         tab[myGroup[i]].role = UNKNOWN;
         tab[myGroup[i]].value = -1;
     }
@@ -490,7 +472,7 @@ void *waitForTripEnd(void *ptr) {
     decideIfBeated();
     randomRole();
 
-    for (int i = 0; i < queue.size(); i++) {
+    for (size_t i = 0; i < queue.size(); i++) {
         orgInfo copy = { queue[i].timestamp, queue[i].tid};
         overdue.push_back(copy);
     }
@@ -595,7 +577,7 @@ void comeBack() {
 
 void randomRole() {
 
-    Role prevRole = currentRole;
+    // Role prevRole = currentRole;
     timestamp++;
 
     myGroup.clear();
