@@ -49,57 +49,57 @@ void inviteHandler(packet *pkt, int src) {
 
 void change_groupHandler(packet *pkt, int src) {
 
-	/*
-		To trzeba natychmiast przestać organizować!
-	*/
+    /*
+        To trzeba natychmiast przestać organizować!
+    */
 
-	if (currentRole == ORG) {
+    if (currentRole == ORG) {
         return;
         
-		if (DEBUG == 1) println("I was org but I have to cancel it :< \n");
+        if (DEBUG == 1) println("I was org but I have to cancel it :< \n");
 
-		for (size_t i = 0; i < myGroup.size(); i++) {
-			if (tab[myGroup[i]].role != ORG)
-				tab[myGroup[i]].value = -1;
-		}
+        for (size_t i = 0; i < myGroup.size(); i++) {
+            if (tab[myGroup[i]].role != ORG)
+                tab[myGroup[i]].value = -1;
+        }
 
-	}
+    }
 
-	currentRole = TUR;
+    currentRole = TUR;
     tab[tid].role = TUR;
     tab[tid].value = pkt->info_val;
 
     if (myGroup.size() > 0) {
-    	if (myGroup[0] != pkt->info_val) {
-	        if (DEBUG == 1) println("Group change! From %d to %d (%d told me!)\n", myGroup[0], pkt->info_val, src);
-    	}
-    	else {
-    		// println("Group change - i'm already in that group...\n");
-    	}
+        if (myGroup[0] != pkt->info_val) {
+            if (DEBUG == 1) println("Group change! From %d to %d (%d told me!)\n", myGroup[0], pkt->info_val, src);
+        }
+        else {
+            // println("Group change - i'm already in that group...\n");
+        }
     }
     else {
-    	// println("Got group change (from %d, change to %d) but I have no group? [size is %d] \n", src, pkt->info_val, (int) myGroup.size());
+        // println("Got group change (from %d, change to %d) but I have no group? [size is %d] \n", src, pkt->info_val, (int) myGroup.size());
     }
 
-	myGroup.clear();
+    myGroup.clear();
     myGroup.push_back(pkt->info_val);
     tab[pkt->info_val].role = ORG;
 
-	// }
+    // }
 
 }
 
 
 void not_orgHandler(packet *pkt, int src) {
 
-	if (tab[src].role == ORG) {
-		// jakiś organizator zrezygnował...
-		for (int i = 0; i < T; i++) {
-			if (tab[i].value == src && tab[i].role == TUR) {
-				tab[i].value = -1;
-			}
-		}
-	}
+    if (tab[src].role == ORG) {
+        // jakiś organizator zrezygnował...
+        for (int i = 0; i < T; i++) {
+            if (tab[i].value == src && tab[i].role == TUR) {
+                tab[i].value = -1;
+            }
+        }
+    }
 
     tab[src].role = TUR;
     tab[src].value = -1;
@@ -153,15 +153,15 @@ void reject_hasgroupHandler(packet *pkt, int src) {
 
     // println("%d already has group -> %d :/\n", src, pkt->info_val);
     // if (pkt->info_val == tid && currentRole == ORG) {
-    // 	// trochę wiksa...
-    // 	size_t i;
-    // 	for (i = 0; i < myGroup.size(); i++) {
-    // 		if (myGroup[i] == src) {
-    // 			break;
-    // 		}
-    // 	}
-    // 	if (i == myGroup.size())
-    // 		myGroup.push_back(src);
+    //  // trochę wiksa...
+    //  size_t i;
+    //  for (i = 0; i < myGroup.size(); i++) {
+    //      if (myGroup[i] == src) {
+    //          break;
+    //      }
+    //  }
+    //  if (i == myGroup.size())
+    //      myGroup.push_back(src);
     // }
 }
 
@@ -297,13 +297,13 @@ void trip_endHandler(packet *pkt, int src) {
         currentRole = UNKNOWN;
         if (DEBUG == 1) println("End of %ds trip notification, which I belong to (TUR) \n", src);
         randomRole();
-	}
-	else {
+    }
+    else {
         // SPECIALLY FOR LONELY TOURISTS <3
 
         tab[tid].role = currentRole;
 
-    	int touristsCount = 0;
+        int touristsCount = 0;
         for (int i = 0; i < size; i++) {
             if (tab[i].role == TUR)
                 touristsCount++;
@@ -319,6 +319,6 @@ void trip_endHandler(packet *pkt, int src) {
             println("[lonely orgs] I became ORG! Because I could.\n");
 
         }
-	}
+    }
 
 }
