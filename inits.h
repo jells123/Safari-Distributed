@@ -16,12 +16,14 @@
 // to debug or not to debug?
 // #define DEBUG
 
-#ifdef DEBUG
-#define debug(FORMAT, ...) printf("%c[%d;%dm [L: %d] [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(tid/7))%2, 31+(6+tid)%7, timestamp, tid, ##__VA_ARGS__, 27,0,37);
+// #ifdef DEBUG
+// #define debug(FORMAT, ...) printf("%c[%d;%dm [L: %d] [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(tid/7))%2, 31+(6+tid)%7, timestamp, tid, ##__VA_ARGS__, 27,0,37);
 
-#else
-#define debug(...) ;
-#endif
+// #else
+// #define debug(...) ;
+// #endif
+
+#define DEBUG 0
 
 #define P_WHITE printf("%c[%d;%dm",27,1,37);
 #define P_BLACK printf("%c[%d;%dm",27,1,30);

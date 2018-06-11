@@ -56,7 +56,7 @@ extern vector<int> reqPermissions, myGroup, invitations;
 extern int ROOT, MSG_TAG, ORG_PROBABILITY, GUIDE_BEATED_PROBABILITY, BEATED_PROBABILITY, TIME_BEATED, GUIDE_TIME_BEATED;
 extern volatile sig_atomic_t FORCE_END;
 
-extern bool beated, deadlock_trouble, imOnTrip;
+extern bool beated, deadlock_trouble, imOnTrip, reqSent;
 
 void *receiveMessages(void *ptr);
 void deleteFromQueue(int tid);
