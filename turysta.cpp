@@ -462,9 +462,12 @@ void *waitForTripEnd(void *ptr) {
     pthread_mutex_lock(&state_mtx);
     timestamp++;
     packet msg = { timestamp, TRIP_END, -1 };
-    for (int i = 0; i < size; i++)
-        if (i != tid)
-            MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+    // for (int i = 0; i < size; i++)
+    //     if (i != tid)
+    //         MPI_Send( &msg, 1, MPI_PAKIET_T, i, MSG_TAG, MPI_COMM_WORLD);
+    for (int i = 0; i < myGroup.size(); i++) {
+        MPI_Send( &msg, 1, MPI_PAKIET_T, myGroup[i], MSG_TAG, MPI_COMM_WORLD);        
+    }
 
     if (DEBUG == 1) println("TRIP END - everyone notified.\n");
     for (int i = 0; i < myGroup.size(); i++) {
